@@ -1,101 +1,68 @@
 package ua.bank;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import ua.bank.exception.InvalidDataException;
+import ua.bank.io.BankCsvReader;
 import ua.bank.model.BankBranch;
 import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
 import ua.bank.model.LoanType;
-import ua.bank.model.RepaymentScheduleItem;
-import ua.bank.model.RepaymentStatus;
 import ua.bank.util.BankUtils;
 
 public class Main {
 
+    private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
+
     public static void main(String[] args) {
-        System.out.println("=== 1. Створення record-об'єктів та звернення до їхніх компонентів ===");
-        Borrower borrower = new Borrower(
-                "AA123456",
-                "Олена Ковальчук",
-                LocalDate.of(1995, 5, 14),
-                35000.0
-        );
-        BankBranch branch = BankBranch.of("  BR-012  ", "  Чернівці  ");
-        LoanContract contract = new LoanContract(
-                "LN-2026-001",
-                borrower,
-                branch,
-                LoanType.MORTGAGE,
-                600000.0,
-                LocalDate.of(2026, 10, 1),
-                24
-        );
-        System.out.println("Компоненти record BankBranch: код = " + branch.branchCode() + ", місто = " + branch.city());
-        System.out.println("Компоненти record LoanContract: ID = " + contract.contractId()
-                + ", тип = " + contract.loanType()
-                + ", сума = " + BankUtils.formatMoney(contract.principalAmount()));
+        LOGGER.info("=== Запуск програми (Лабораторна робота №3) ===");
 
-        System.out.println("\n=== 2. Робота з enum: values(), поля константи та valueOf() у try/catch ===");
-        System.out.println("Усі доступні типи кредитів (LoanType.values()):");
-        for (LoanType type : LoanType.values()) {
-            System.out.printf(" - %s (%s): базова ставка = %.0f%%%n",
-                    type.name(), type.getDescription(), type.getAnnualRate() * 100);
+        // 1. Зчитування даних з CSV-файлів (із пропуском некоректних рядків через InvalidDataException)
+        List<BankBranch> branches = BankCsvReader.readBranches("data/branches.csv");
+        List<Borrower> borrowers = BankCsvReader.readBorrowers("data/borrowers.csv");
+
+        System.out.println("\nУспішно зчитані відділення (" + branches.size() + "):");
+        branches.forEach(System.out::println);
+
+        System.out.println("\nУспішно зчитані позичальники (" + borrowers.size() + "):");
+        borrowers.forEach(System.out::println);
+
+        // 2. Демонстрація обробки відсутнього файлу (логування SEVERE/ERROR)
+        System.out.println("\n=== Спроба прочитати неіснуючий файл ===");
+        BankCsvReader.readBranches("data/missing_file.csv");
+
+        // 3. Пряма демонстрація власного виключення InvalidDataException
+        System.out.println("\n=== Демонстрація InvalidDataException ===");
+        try {
+            BankCsvReader.parseBorrowerLine("XX000111,Тест Користувач,1990-01-01,not_a_number", 99);
+        } catch (InvalidDataException e) {
+            LOGGER.log(Level.WARNING, "Перехоплено власне виключення: " + e.getMessage());
         }
 
-        try {
-            LoanType invalidType = LoanType.valueOf("CRYPTO_LOAN");
-            System.out.println(invalidType);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка LoanType.valueOf(\"CRYPTO_LOAN\"): " + e.getMessage());
-        }
+        // 4. Створення кредитного договору зі зчитаних даних та обробка порушення правил домену
+        System.out.println("\n=== Порушення правил домену при створенні договору ===");
+        if (!branches.isEmpty() && !borrowers.isEmpty()) {
+            Borrower validBorrower = borrowers.get(0);
+            BankBranch validBranch = branches.get(0);
 
-        System.out.println("\n=== 3. Робота обох switch-виразів у BankUtils ===");
-        double riskCoef = BankUtils.getRiskCoefficient(contract.loanType());
-        System.out.println("Коефіцієнт ризику для " + contract.loanType() + ": " + riskCoef);
-
-        RepaymentScheduleItem paymentItem = RepaymentScheduleItem.of(
-                contract,
-                LocalDate.of(2026, 11, 1),
-                25000.0,
-                RepaymentStatus.PENDING
-        );
-        System.out.println("Дія для статусу " + paymentItem.getStatus() + ": "
-                + BankUtils.getAvailableAction(paymentItem.getStatus()));
-
-        paymentItem.setStatus(RepaymentStatus.OVERDUE);
-        System.out.println("Дія після зміни на " + paymentItem.getStatus() + ": "
-                + BankUtils.getAvailableAction(paymentItem.getStatus()));
-
-        System.out.println("\n=== 4. Валідація у компактному конструкторі record (IllegalArgumentException) ===");
-        try {
-            new BankBranch("   ", "Київ");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка створення BankBranch: " + e.getMessage());
-        }
-
-        try {
-            new LoanContract(
-                    "LN-ERR-01",
-                    borrower,
-                    branch,
-                    LoanType.AUTO,
-                    150000.0,
-                    LocalDate.of(2026, 10, 5),
-                    500 // некоректний термін > 360 міс.
+            LoanContract contract = new LoanContract(
+                    "LN-2026-301", validBorrower, validBranch, LoanType.MORTGAGE,
+                    500000.0, LocalDate.of(2026, 10, 15), 24
             );
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка створення LoanContract: " + e.getMessage());
+            LOGGER.info("Створено договір: " + contract.contractId()
+                    + ", щомісячний платіж = " + BankUtils.formatMoney(BankUtils.monthlyPayment(contract)));
+
+            try {
+                // Порушення ліміту суми (> monthlyIncome * 60)
+                new LoanContract("LN-ERR", validBorrower, validBranch, LoanType.AUTO,
+                        9_000_000.0, LocalDate.of(2026, 10, 15), 12);
+            } catch (IllegalArgumentException e) {
+                LOGGER.log(Level.SEVERE, "Порушення бізнес-правила домену: " + e.getMessage());
+            }
         }
 
-        System.out.println("\n=== 5. Два однакові record-об'єкти: згенеровані equals() та hashCode() ===");
-        BankBranch branchCopy = new BankBranch("BR-012", "Чернівці");
-        System.out.println("branch == branchCopy: " + (branch == branchCopy));
-        System.out.println("branch.equals(branchCopy): " + branch.equals(branchCopy));
-        System.out.println("branch.hashCode() == branchCopy.hashCode(): "
-                + (branch.hashCode() == branchCopy.hashCode())
-                + " (" + branch.hashCode() + ")");
-
-        System.out.println("\n=== 6. Вивід record через автоматично згенерований toString() ===");
-        System.out.println(branch);
-        System.out.println(contract);
+        LOGGER.info("=== Роботу програми успішно завершено ===");
     }
 }
