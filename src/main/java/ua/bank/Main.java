@@ -4,131 +4,98 @@ import java.time.LocalDate;
 import ua.bank.model.BankBranch;
 import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
+import ua.bank.model.LoanType;
 import ua.bank.model.RepaymentScheduleItem;
+import ua.bank.model.RepaymentStatus;
 import ua.bank.util.BankUtils;
 
 public class Main {
 
     public static void main(String[] args) {
-        System.out.println("=== 1. Створення об'єктів конструктором та фабричним методом of(...) ===");
+        System.out.println("=== 1. Створення record-об'єктів та звернення до їхніх компонентів ===");
         Borrower borrower = new Borrower(
-                "  AA123456  ",
-                "  Олена Ковальчук  ",
+                "AA123456",
+                "Олена Ковальчук",
                 LocalDate.of(1995, 5, 14),
                 35000.0
         );
-        BankBranch branch = BankBranch.of("  BR-012  ", "Чернівці");
-        System.out.println("Створено через конструктор: " + borrower);
-        System.out.println("Створено через фабрику of(): " + branch);
-
-        System.out.println("\n=== 2. Нормалізація в дії ===");
+        BankBranch branch = BankBranch.of("  BR-012  ", "  Чернівці  ");
         LoanContract contract = new LoanContract(
                 "LN-2026-001",
                 borrower,
                 branch,
-                "  mortgage  ", // вхідний рядок у нижньому регістрі з пробілами
+                LoanType.MORTGAGE,
                 600000.0,
                 LocalDate.of(2026, 10, 1),
                 24
         );
-        System.out.println("Вхідний тип кредиту: '  mortgage  ' -> Нормалізований: '" + contract.getLoanType() + "'");
+        System.out.println("Компоненти record BankBranch: код = " + branch.branchCode() + ", місто = " + branch.city());
+        System.out.println("Компоненти record LoanContract: ID = " + contract.contractId()
+                + ", тип = " + contract.loanType()
+                + ", сума = " + BankUtils.formatMoney(contract.principalAmount()));
 
-        RepaymentScheduleItem firstPayment = RepaymentScheduleItem.of(
+        System.out.println("\n=== 2. Робота з enum: values(), поля константи та valueOf() у try/catch ===");
+        System.out.println("Усі доступні типи кредитів (LoanType.values()):");
+        for (LoanType type : LoanType.values()) {
+            System.out.printf(" - %s (%s): базова ставка = %.0f%%%n",
+                    type.name(), type.getDescription(), type.getAnnualRate() * 100);
+        }
+
+        try {
+            LoanType invalidType = LoanType.valueOf("CRYPTO_LOAN");
+            System.out.println(invalidType);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Помилка LoanType.valueOf(\"CRYPTO_LOAN\"): " + e.getMessage());
+        }
+
+        System.out.println("\n=== 3. Робота обох switch-виразів у BankUtils ===");
+        double riskCoef = BankUtils.getRiskCoefficient(contract.loanType());
+        System.out.println("Коефіцієнт ризику для " + contract.loanType() + ": " + riskCoef);
+
+        RepaymentScheduleItem paymentItem = RepaymentScheduleItem.of(
                 contract,
                 LocalDate.of(2026, 11, 1),
                 25000.0,
-                "  pending "
+                RepaymentStatus.PENDING
         );
-        System.out.println("Вхідний статус платежу: '  pending ' -> Нормалізований: '" + firstPayment.getStatus() + "'");
+        System.out.println("Дія для статусу " + paymentItem.getStatus() + ": "
+                + BankUtils.getAvailableAction(paymentItem.getStatus()));
 
-        System.out.println("\n=== 3. Три порушення правил валідації (try / catch) ===");
-        // Порушення 1: вік позичальника менше 21 року
+        paymentItem.setStatus(RepaymentStatus.OVERDUE);
+        System.out.println("Дія після зміни на " + paymentItem.getStatus() + ": "
+                + BankUtils.getAvailableAction(paymentItem.getStatus()));
+
+        System.out.println("\n=== 4. Валідація у компактному конструкторі record (IllegalArgumentException) ===");
         try {
-            new Borrower("BB987654", "Іван Петренко", LocalDate.now().minusYears(19), 20000.0);
+            new BankBranch("   ", "Київ");
         } catch (IllegalArgumentException e) {
-            System.out.println("Помилка 1 (вік): " + e.getMessage());
+            System.out.println("Помилка створення BankBranch: " + e.getMessage());
         }
 
-        // Порушення 2: сума кредиту перевищує 60 місячних доходів (35000 * 60 = 2_100_000)
         try {
             new LoanContract(
                     "LN-ERR-01",
                     borrower,
                     branch,
-                    "AUTO",
-                    2_500_000.0,
-                    LocalDate.of(2026, 10, 10),
-                    36
+                    LoanType.AUTO,
+                    150000.0,
+                    LocalDate.of(2026, 10, 5),
+                    500 // некоректний термін > 360 міс.
             );
         } catch (IllegalArgumentException e) {
-            System.out.println("Помилка 2 (ліміт суми): " + e.getMessage());
+            System.out.println("Помилка створення LoanContract: " + e.getMessage());
         }
 
-        // Порушення 3: неіснуючий тип кредиту
-        try {
-            new LoanContract(
-                    "LN-ERR-02",
-                    borrower,
-                    branch,
-                    "STUDENT_LOAN",
-                    50000.0,
-                    LocalDate.of(2026, 10, 10),
-                    12
-            );
-        } catch (IllegalArgumentException e) {
-            System.out.println("Помилка 3 (тип кредиту): " + e.getMessage());
-        }
+        System.out.println("\n=== 5. Два однакові record-об'єкти: згенеровані equals() та hashCode() ===");
+        BankBranch branchCopy = new BankBranch("BR-012", "Чернівці");
+        System.out.println("branch == branchCopy: " + (branch == branchCopy));
+        System.out.println("branch.equals(branchCopy): " + branch.equals(branchCopy));
+        System.out.println("branch.hashCode() == branchCopy.hashCode(): "
+                + (branch.hashCode() == branchCopy.hashCode())
+                + " (" + branch.hashCode() + ")");
 
-        System.out.println("\n=== 4. Спроба зіпсувати коректний об'єкт через сеттер ===");
-        try {
-            borrower.setMonthlyIncome(-5000.0);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Сеттер заблокував некоректний дохід: " + e.getMessage());
-        }
-
-        try {
-            firstPayment.setStatus("CANCELLED");
-        } catch (IllegalArgumentException e) {
-            System.out.println("Сеттер заблокував некоректний статус: " + e.getMessage());
-        }
-
-        // Коректна зміна через сеттер
-        firstPayment.setStatus("paid");
-        System.out.println("Статус платежу успішно оновлено на: " + firstPayment.getStatus());
-
-        System.out.println("\n=== 5. Порівняння об'єктів: ==, equals, hashCode ===");
-        Borrower sameBorrower = new Borrower(
-                "AA123456",
-                "Олена Ковальчук (Інший запис)",
-                LocalDate.of(1995, 5, 14),
-                40000.0
-        );
-        Borrower differentBorrower = new Borrower(
-                "CC555444",
-                "Максим Сидоренко",
-                LocalDate.of(1990, 3, 20),
-                28000.0
-        );
-
-        System.out.println("borrower == sameBorrower: " + (borrower == sameBorrower));
-        System.out.println("borrower.equals(sameBorrower): " + borrower.equals(sameBorrower));
-        System.out.println("hashCode 1: " + borrower.hashCode() + ", hashCode 2: " + sameBorrower.hashCode());
-        System.out.println("borrower.equals(differentBorrower): " + borrower.equals(differentBorrower));
-
-        System.out.println("\n=== 6. Виклик обчислюваних методів із BankUtils ===");
-        double monthly = BankUtils.monthlyPayment(contract);
-        LocalDate lastDate = BankUtils.lastDueDate(contract);
-        System.out.println("Щомісячний платіж за договором " + contract.getContractId() + ": " + BankUtils.formatMoney(monthly));
-        System.out.println("Дата останнього платежу: " + lastDate);
-
-        System.out.println("\n=== 7. Вивід усіх сутностей через toString() ===");
-        System.out.println(borrower);
+        System.out.println("\n=== 6. Вивід record через автоматично згенерований toString() ===");
         System.out.println(branch);
         System.out.println(contract);
-        System.out.println(firstPayment);
-
-        // 8. Compilation error demonstration (package-private access & private constructor):
-        // ValidationHelper.requirePositive(100, "amount"); // Error: ValidationHelper is not public in ua.bank.util; cannot be accessed from outside package
-        // BankBranch invalidBranch = new BankBranch("BR-99", "Kyiv"); // Error: BankBranch(String, String) has private access in ua.bank.model.BankBranch
     }
 }

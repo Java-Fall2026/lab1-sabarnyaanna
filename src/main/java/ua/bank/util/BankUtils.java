@@ -2,6 +2,8 @@ package ua.bank.util;
 
 import java.time.LocalDate;
 import ua.bank.model.LoanContract;
+import ua.bank.model.LoanType;
+import ua.bank.model.RepaymentStatus;
 
 public final class BankUtils {
 
@@ -48,37 +50,42 @@ public final class BankUtils {
         ValidationHelper.requireDateAfter(dueDate, issueDate, "dueDate", "issueDate");
     }
 
-    public static String validateAndNormalizeLoanType(String loanType) {
-        ValidationHelper.requireNotBlank(loanType, "loanType");
-        String normalized = FormatHelper.normalizeUpper(loanType);
-        ValidationHelper.requireAllowedValue(normalized, ValidationHelper.ALLOWED_LOAN_TYPES, "loanType");
-        return normalized;
-    }
-
-    public static String validateAndNormalizeRepaymentStatus(String status) {
-        ValidationHelper.requireNotBlank(status, "status");
-        String normalized = FormatHelper.normalizeUpper(status);
-        ValidationHelper.requireAllowedValue(normalized, ValidationHelper.ALLOWED_REPAYMENT_STATUSES, "status");
-        return normalized;
-    }
-
     public static String formatMoney(double amount) {
         return FormatHelper.formatMoney(amount);
-    }
-
-    public static String capitalize(String text) {
-        return FormatHelper.capitalize(text);
     }
 
     // --- Computed methods from Variant 12 profile ---
 
     public static double monthlyPayment(LoanContract contract) {
         ValidationHelper.requireNotNull(contract, "contract");
-        return contract.getPrincipalAmount() / contract.getTermMonths();
+        return contract.principalAmount() / contract.termMonths();
     }
 
     public static LocalDate lastDueDate(LoanContract contract) {
         ValidationHelper.requireNotNull(contract, "contract");
-        return contract.getIssueDate().plusMonths(contract.getTermMonths());
+        return contract.issueDate().plusMonths(contract.termMonths());
+    }
+
+    // --- Switch-expressions (Lab 2) ---
+
+    // 1. Switch-expression over all LoanType constants (returns coefficient / fee multiplier)
+    public static double getRiskCoefficient(LoanType loanType) {
+        ValidationHelper.requireNotNull(loanType, "loanType");
+        return switch (loanType) {
+            case MORTGAGE -> 1.05;
+            case AUTO -> 1.12;
+            case COMMERCIAL -> 1.20;
+            case CONSUMER -> 1.35;
+        };
+    }
+
+    // 2. Switch-expression for behavior selection by RepaymentStatus
+    public static String getAvailableAction(RepaymentStatus status) {
+        ValidationHelper.requireNotNull(status, "status");
+        return switch (status) {
+            case PENDING -> "Очікує оплати: доступна стандартна сплата без комісії";
+            case PAID -> "Сплачено: дії за платежем закриті, можна завантажити квитанцію";
+            case OVERDUE -> "Прострочено: нараховується пеня, потрібне термінове погашення";
+        };
     }
 }

@@ -2,7 +2,6 @@ package ua.bank.util;
 
 import java.time.LocalDate;
 import java.time.Period;
-import java.util.List;
 
 final class ValidationHelper {
 
@@ -10,9 +9,6 @@ final class ValidationHelper {
     static final int MIN_TERM_MONTHS = 1;
     static final int MAX_TERM_MONTHS = 360;
     static final double MAX_INCOME_MULTIPLIER = 60.0;
-
-    static final List<String> ALLOWED_LOAN_TYPES = List.of("MORTGAGE", "CONSUMER", "AUTO", "COMMERCIAL");
-    static final List<String> ALLOWED_REPAYMENT_STATUSES = List.of("PENDING", "PAID", "OVERDUE");
 
     private ValidationHelper() {
     }
@@ -75,13 +71,6 @@ final class ValidationHelper {
         if (!date.isAfter(referenceDate)) {
             throw new IllegalArgumentException(
                     fieldName + " must be strictly after " + referenceName + " (" + referenceDate + "), got: " + date);
-        }
-    }
-
-    static void requireAllowedValue(String normalizedValue, List<String> allowedValues, String fieldName) {
-        if (!allowedValues.contains(normalizedValue)) {
-            throw new IllegalArgumentException(
-                    fieldName + " must be one of " + allowedValues + ", got: '" + normalizedValue + "'");
         }
     }
 }

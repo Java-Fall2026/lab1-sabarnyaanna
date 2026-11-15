@@ -10,20 +10,20 @@ public class RepaymentScheduleItem extends BaseEntity {
     private final LoanContract contract;
     private final LocalDate dueDate;
     private final double amountDue;
-    private String status;
+    private RepaymentStatus status;
 
-    private RepaymentScheduleItem(LoanContract contract, LocalDate dueDate, double amountDue, String status) {
+    private RepaymentScheduleItem(LoanContract contract, LocalDate dueDate, double amountDue, RepaymentStatus status) {
         super();
         BankUtils.validateNotNull(contract, "contract");
         this.contract = contract;
-        BankUtils.validateDueDate(dueDate, contract.getIssueDate());
+        BankUtils.validateDueDate(dueDate, contract.issueDate());
         this.dueDate = dueDate;
         BankUtils.validatePositiveAmount(amountDue, "amountDue");
         this.amountDue = amountDue;
         setStatus(status);
     }
 
-    public static RepaymentScheduleItem of(LoanContract contract, LocalDate dueDate, double amountDue, String status) {
+    public static RepaymentScheduleItem of(LoanContract contract, LocalDate dueDate, double amountDue, RepaymentStatus status) {
         return new RepaymentScheduleItem(contract, dueDate, amountDue, status);
     }
 
@@ -39,12 +39,13 @@ public class RepaymentScheduleItem extends BaseEntity {
         return amountDue;
     }
 
-    public String getStatus() {
+    public RepaymentStatus getStatus() {
         return status;
     }
 
-    public final void setStatus(String status) {
-        this.status = BankUtils.validateAndNormalizeRepaymentStatus(status);
+    public final void setStatus(RepaymentStatus status) {
+        BankUtils.validateNotNull(status, "status");
+        this.status = status;
     }
 
     @Override
@@ -63,10 +64,10 @@ public class RepaymentScheduleItem extends BaseEntity {
     @Override
     public String toString() {
         return "RepaymentScheduleItem{" +
-                "contractId='" + contract.getContractId() + '\'' +
+                "contractId='" + contract.contractId() + '\'' +
                 ", dueDate=" + dueDate +
                 ", amountDue=" + BankUtils.formatMoney(amountDue) +
-                ", status='" + status + '\'' +
+                ", status=" + status +
                 ", createdAt=" + createdAt +
                 '}';
     }
