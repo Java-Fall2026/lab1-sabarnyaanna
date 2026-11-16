@@ -5,7 +5,7 @@ import java.util.Objects;
 import ua.bank.util.BankUtils;
 import ua.common.BaseEntity;
 
-public class Borrower extends BaseEntity {
+public class Borrower extends BaseEntity implements Comparable<Borrower> {
 
     private final String passportNum;
     private final String fullName;
@@ -29,6 +29,12 @@ public class Borrower extends BaseEntity {
     public final void setMonthlyIncome(double monthlyIncome) {
         BankUtils.validatePositiveAmount(monthlyIncome, "monthlyIncome");
         this.monthlyIncome = monthlyIncome;
+    }
+
+    @Override
+    public int compareTo(Borrower other) {
+        Objects.requireNonNull(other, "other Borrower must not be null");
+        return this.passportNum.compareTo(other.passportNum);
     }
 
     @Override

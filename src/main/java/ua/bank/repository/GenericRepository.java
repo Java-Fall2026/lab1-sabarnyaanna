@@ -1,10 +1,12 @@
 package ua.bank.repository;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,7 +14,7 @@ public class GenericRepository<T> {
 
     private static final Logger log = LoggerFactory.getLogger(GenericRepository.class);
 
-    private final String entityName;
+    protected final String entityName;
     private final IdentityExtractor<T> identityExtractor;
     private final Map<String, T> storage = new LinkedHashMap<>();
 
@@ -21,9 +23,6 @@ public class GenericRepository<T> {
         this.identityExtractor = Objects.requireNonNull(identityExtractor, "identityExtractor must not be null");
     }
 
-    /**
-     * Додає елемент у репозиторій. Якщо елемент із таким identity вже існує — повертає false і не перезаписує його.
-     */
     public boolean add(T item) {
         if (item == null) {
             throw new IllegalArgumentException(entityName + " item must not be null");
@@ -38,9 +37,6 @@ public class GenericRepository<T> {
         return true;
     }
 
-    /**
-     * Видаляє елемент за його унікальним identity.
-     */
     public boolean removeByIdentity(String identity) {
         if (identity == null || identity.trim().isEmpty()) {
             log.warn("[{}] Attempted to remove item with blank identity", entityName);
@@ -56,41 +52,60 @@ public class GenericRepository<T> {
         return false;
     }
 
-    /**
-     * Видаляє переданий об'єкт, витягуючи його identity через IdentityExtractor.
-     */
     public boolean remove(T item) {
         if (item == null) {
             return false;
         }
-        String id = normalizeId(identityExtractor.extractIdentity(item));
-        return removeByIdentity(id);
+        return removeByIdentity(normalizeId(identityExtractor.extractIdentity(item)));
     }
 
-    /**
-     * Пошук об'єкта за унікальним полем (identity).
-     */
     public Optional<T> findByIdentity(String identity) {
         if (identity == null || identity.trim().isEmpty()) {
-            log.warn("[{}] Search called with blank identity", entityName);
+            log.warn("[{}] Search by identity called with blank value", entityName);
             return Optional.empty();
         }
         String id = identity.trim();
-        T found = storage.get(id);
-        if (found != null) {
-            log.info("[{}] Found item by identity '{}'", entityName, id);
-        } else {
-            log.info("[{}] No item found by identity '{}'", entityName, id);
-        }
-        return Optional.ofNullable(found);
+        Optional<T> result = storage.entrySet().stream()
+                .filter(entry -> entry.getKey().equals(id))
+                .map(Map.Entry::getValue)
+                .findFirst();
+        log.info("[{}] Search by identity='{}' -> found={}", entityName, id, result.isPresent());
+        return result;
     }
 
-    /**
-     * Повертає незмінну копію списку всіх елементів репозиторію.
-     */
     public List<T> getAll() {
         log.info("[{}] Retrieved all items (count={})", entityName, storage.size());
         return List.copyOf(storage.values());
+    }
+
+    /**
+     * Повертає Stream<T> над поточними елементами сховища (лінивий конвеєр без створення копії списку).
+     */
+    public Stream<T> stream() {
+        log.info("[{}] Opened stream over repository (current size={})", entityName, storage.size());
+        return storage.values().stream();
+    }
+
+    public List<T> findAllSorted(Comparator<T> comparator) {
+        Objects.requireNonNull(comparator, "comparator must not be null");
+        List<T> sorted = storage.values().stream()
+                .sorted(comparator)
+                .toList();
+        log.info("[{}] Sorted items with custom comparator -> count={}", entityName, sorted.size());
+        return sorted;
+    }
+
+    public List<T> findAllSortedByIdentity(SortOrder order) {
+        Objects.requireNonNull(order, "SortOrder must not be null");
+        Comparator<T> idComparator = Comparator.comparing(identityExtractor::extractIdentity);
+        if (order == SortOrder.DESC) {
+            idComparator = idComparator.reversed();
+        }
+        List<T> sorted = storage.values().stream()
+                .sorted(idComparator)
+                .toList();
+        log.info("[{}] Sorted by identity (order={}) -> count={}", entityName, order, sorted.size());
+        return sorted;
     }
 
     public int size() {

@@ -1,17 +1,21 @@
 package ua.bank;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.util.Comparator;
+import java.util.DoubleSummaryStatistics;
+import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ua.bank.io.BankCsvReader;
 import ua.bank.model.BankBranch;
 import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
 import ua.bank.model.LoanType;
-import ua.bank.model.RepaymentScheduleItem;
-import ua.bank.model.RepaymentStatus;
-import ua.bank.repository.GenericRepository;
+import ua.bank.repository.BorrowerRepository;
+import ua.bank.repository.LoanContractRepository;
+import ua.bank.repository.SortOrder;
 import ua.bank.util.BankUtils;
 
 public class Main {
@@ -19,92 +23,86 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("=== Запуск програми (Лабораторна робота №4: Generics та Колекції) ===");
+        log.info("=== Запуск програми (Лабораторна робота №5: Сортування та Stream API) ===");
 
-        // 1. Створення репозиторіїв для різних типів сутностей за допомогою лямбд / method references
-        GenericRepository<BankBranch> branchRepo =
-                new GenericRepository<>("BankBranch", BankBranch::branchCode);
+        // 1. Наповнення доменних репозиторіїв
+        BorrowerRepository borrowerRepo = new BorrowerRepository();
+        LoanContractRepository contractRepo = new LoanContractRepository();
 
-        GenericRepository<Borrower> borrowerRepo =
-                new GenericRepository<>("Borrower", Borrower::getPassportNum);
+        Borrower b1 = new Borrower("CC300300", "Олена Ковальчук", LocalDate.of(1995, 5, 14), 35000.0);
+        Borrower b2 = new Borrower("AA100100", "Тарас Бондар", LocalDate.of(1988, 9, 22), 55000.0);
+        Borrower b3 = new Borrower("BB200200", "Наталія Ткачук", LocalDate.of(1992, 11, 30), 55000.0);
+        Borrower b4 = new Borrower("DD400400", "Андрій Мельник", LocalDate.of(1985, 2, 10), 22000.0);
 
-        GenericRepository<LoanContract> contractRepo =
-                new GenericRepository<>("LoanContract", LoanContract::contractId);
+        borrowerRepo.add(b1);
+        borrowerRepo.add(b2);
+        borrowerRepo.add(b3);
+        borrowerRepo.add(b4);
 
-        // Для RepaymentScheduleItem унікальний ключ — композитний (contractId + dueDate)
-        GenericRepository<RepaymentScheduleItem> scheduleRepo =
-                new GenericRepository<>("RepaymentScheduleItem",
-                        item -> item.getContract().contractId() + "_" + item.getDueDate());
+        BankBranch kyiv = BankBranch.of("BR-01", "Київ");
+        BankBranch chernivtsi = BankBranch.of("BR-02", "Чернівці");
+        BankBranch lviv = BankBranch.of("BR-03", "Львів");
 
-        // 2. Завантаження об'єктів із CSV (ЛР 3) та додавання в репозиторії
-        List<BankBranch> csvBranches = BankCsvReader.readBranches("data/branches.csv");
-        csvBranches.forEach(branchRepo::add);
+        contractRepo.add(new LoanContract("LN-03", b1, kyiv, LoanType.MORTGAGE, 800000.0, LocalDate.of(2026, 5, 10), 120));
+        contractRepo.add(new LoanContract("LN-01", b2, chernivtsi, LoanType.AUTO, 450000.0, LocalDate.of(2026, 7, 15), 36));
+        contractRepo.add(new LoanContract("LN-04", b3, kyiv, LoanType.MORTGAGE, 800000.0, LocalDate.of(2026, 8, 20), 60));
+        contractRepo.add(new LoanContract("LN-02", b4, lviv, LoanType.CONSUMER, 120000.0, LocalDate.of(2026, 9, 1), 12));
 
-        List<Borrower> csvBorrowers = BankCsvReader.readBorrowers("data/borrowers.csv");
-        csvBorrowers.forEach(borrowerRepo::add);
+        // 2. Сортування за природним порядком, за identity (ASC / DESC) та багаторівневим компаратором
+        System.out.println("\n=== Сортування позичальників (природний порядок: passportNum) ===");
+        borrowerRepo.findAllSortedByNaturalOrder().forEach(System.out::println);
 
-        // Створення об'єктів LoanContract та RepaymentScheduleItem з використанням усіх enum (ЛР 2)
-        Borrower borrower1 = borrowerRepo.findByIdentity("AA111222").orElseThrow();
-        Borrower borrower2 = borrowerRepo.findByIdentity("EE999000").orElseThrow();
-        BankBranch branch1 = branchRepo.findByIdentity("BR-001").orElseThrow();
-        BankBranch branch2 = branchRepo.findByIdentity("BR-002").orElseThrow();
+        System.out.println("\n=== Сортування договорів за identity (DESC) ===");
+        contractRepo.findAllSortedByIdentity(SortOrder.DESC).forEach(System.out::println);
 
-        LoanContract contract1 = new LoanContract(
-                "LN-2026-01", borrower1, branch1, LoanType.MORTGAGE,
-                500000.0, LocalDate.of(2026, 10, 1), 24
+        System.out.println("\n=== Багаторівневе сортування договорів (сума DESC -> термін ASC) ===");
+        contractRepo.findAllSortedByAmountDescThenTermAsc().forEach(System.out::println);
+
+        // 3. Демонстрація TreeSet із компаратором, неузгодженим з equals
+        System.out.println("\n=== TreeSet з компаратором за доходом (не узгодженим з equals) ===");
+        Set<Borrower> treeSetByIncome = new TreeSet<>(Comparator.comparingDouble(Borrower::getMonthlyIncome));
+        treeSetByIncome.add(b2); // дохід 55000.0
+        boolean addedSameIncome = treeSetByIncome.add(b3); // інший паспорт, але той самий дохід 55000.0!
+        System.out.println("Чи додано другого позичальника з таким самим доходом 55000 у TreeSet: " + addedSameIncome);
+        System.out.println("Розмір TreeSet: " + treeSetByIncome.size() + " (TreeSet вважає елементи дублікатами, бо compare == 0)");
+
+        // 4. Пошук через Stream API (діапазон, назва, кілька умов, distinct)
+        System.out.println("\n=== Пошук договорів у діапазоні сум [400 000 .. 900 000] ===");
+        contractRepo.findByPrincipalRange(400_000.0, 900_000.0).forEach(System.out::println);
+
+        System.out.println("\n=== Унікальні міста відділень у договорах (map + distinct + sorted) ===");
+        System.out.println(contractRepo.findDistinctBranchCities());
+
+        // 5. Групування та агрегація
+        System.out.println("\n=== Групування договорів за типом (groupingBy + counting) ===");
+        System.out.println("Кількість за типами: " + contractRepo.countByLoanType());
+        System.out.println("Загальна сума всіх кредитів (reduce): "
+                + BankUtils.formatMoney(contractRepo.calculateTotalPrincipal()));
+
+        DoubleSummaryStatistics incomeStats = borrowerRepo.getIncomeStatistics();
+        System.out.printf("Статистика доходів: мін=%.2f, макс=%.2f, середній=%.2f%n",
+                incomeStats.getMin(), incomeStats.getMax(), incomeStats.getAverage());
+
+        // 6. Обробка порожнього результату через Optional (без isPresent() + get())
+        System.out.println("\n=== Обробка порожнього результату (Optional) ===");
+        Optional<LoanContract> missingContract = contractRepo.findFirstByTypeCityAndMinDate(
+                LoanType.COMMERCIAL, "Одеса", LocalDate.of(2026, 1, 1)
         );
-        LoanContract contract2 = new LoanContract(
-                "LN-2026-02", borrower2, branch2, LoanType.AUTO,
-                300000.0, LocalDate.of(2026, 10, 5), 12
-        );
-        contractRepo.add(contract1);
-        contractRepo.add(contract2);
+        String message = missingContract
+                .map(c -> "Знайдено: " + c.contractId())
+                .orElse("Договір за заданими умовами не знайдено (Optional.empty)");
+        System.out.println(message);
 
-        RepaymentScheduleItem item1 = RepaymentScheduleItem.of(
-                contract1, LocalDate.of(2026, 11, 1),
-                BankUtils.monthlyPayment(contract1), RepaymentStatus.PAID
-        );
-        RepaymentScheduleItem item2 = RepaymentScheduleItem.of(
-                contract1, LocalDate.of(2026, 12, 1),
-                BankUtils.monthlyPayment(contract1), RepaymentStatus.PENDING
-        );
-        RepaymentScheduleItem item3 = RepaymentScheduleItem.of(
-                contract2, LocalDate.of(2026, 11, 5),
-                BankUtils.monthlyPayment(contract2), RepaymentStatus.OVERDUE
-        );
-        scheduleRepo.add(item1);
-        scheduleRepo.add(item2);
-        scheduleRepo.add(item3);
-
-        // 3. Пошук за унікальним полем (findByIdentity)
-        System.out.println("\n=== Пошук за identity ===");
-        contractRepo.findByIdentity("LN-2026-01")
-                .ifPresent(c -> System.out.println("Знайдено договір: " + c
-                        + " | Ризик-коефіцієнт: " + BankUtils.getRiskCoefficient(c.loanType())));
-
-        System.out.println("Пошук неіснуючого договору 'LN-999': "
-                + contractRepo.findByIdentity("LN-999").isPresent());
-
-        // 4. Демонстрація роботи з дубльованими даними
-        System.out.println("\n=== Демонстрація дубльованих даних ===");
-        BankBranch duplicateBranch = BankBranch.of("BR-001", "Інше Місто (дублікат коду)");
-        boolean addedDuplicateBranch = branchRepo.add(duplicateBranch);
-        System.out.println("Чи додано дублікат відділення BR-001: " + addedDuplicateBranch);
-        System.out.println("Актуальне відділення BR-001 у репозиторії: "
-                + branchRepo.findByIdentity("BR-001").orElseThrow());
-
-        Borrower duplicateBorrower = new Borrower(
-                "AA111222", "Інший ПІБ Дублікат", LocalDate.of(1990, 1, 1), 50000.0
-        );
-        boolean addedDuplicateBorrower = borrowerRepo.add(duplicateBorrower);
-        System.out.println("Чи додано дублікат позичальника AA111222: " + addedDuplicateBorrower);
-
-        // 5. Видалення та отримання всіх елементів
-        System.out.println("\n=== Видалення та список усіх елементів ===");
-        scheduleRepo.remove(item3);
-        System.out.println("Залишилось платежів у графіку: " + scheduleRepo.getAll().size());
-        scheduleRepo.getAll().forEach(p ->
-                System.out.println(" - " + p + " -> " + BankUtils.getAvailableAction(p.getStatus())));
+        // 7. Повторне використання вже спожитого Stream -> IllegalStateException
+        System.out.println("\n=== Повторне використання спожитого Stream ===");
+        Stream<Borrower> borrowerStream = borrowerRepo.stream();
+        long count = borrowerStream.count(); // термінальна операція спожила стрім
+        System.out.println("Перший виклик count(): " + count);
+        try {
+            borrowerStream.forEach(System.out::println); // повторний виклик на тому ж Stream
+        } catch (IllegalStateException e) {
+            log.error("Очікувана помилка повторного використання Stream: {}", e.getMessage());
+        }
 
         log.info("=== Роботу програми успішно завершено ===");
     }
