@@ -8,53 +8,44 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ua.bank.exception.InvalidDataException;
 import ua.bank.model.BankBranch;
 import ua.bank.model.Borrower;
 
 public final class BankCsvReader {
 
-    private static final Logger LOGGER = Logger.getLogger(BankCsvReader.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(BankCsvReader.class);
 
     private BankCsvReader() {
     }
 
     public static List<BankBranch> readBranches(String filePath) {
         List<BankBranch> branches = new ArrayList<>();
-        BufferedReader reader = null;
 
-        try {
-            reader = new BufferedReader(new FileReader(filePath, StandardCharsets.UTF_8));
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath, StandardCharsets.UTF_8))) {
             String line;
             int lineNumber = 0;
 
             while ((line = reader.readLine()) != null) {
                 lineNumber++;
                 if (line.trim().isEmpty() || (lineNumber == 1 && line.startsWith("branchCode"))) {
-                    continue; // skip empty line or CSV header
+                    continue;
                 }
                 try {
                     BankBranch branch = parseBranchLine(line, lineNumber);
                     branches.add(branch);
+                    log.info("Parsed BankBranch at line {}: {} ({})", lineNumber, branch.branchCode(), branch.city());
                 } catch (InvalidDataException e) {
-                    LOGGER.log(Level.WARNING, "Skipping invalid branch row #" + lineNumber + ": " + e.getMessage());
+                    log.warn("Skipping invalid branch row #{}: {}", lineNumber, e.getMessage());
                 }
             }
-            LOGGER.info("Successfully loaded " + branches.size() + " branches from " + filePath);
+            log.info("Successfully loaded {} branches from {}", branches.size(), filePath);
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to read branches file: " + filePath, e);
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                    LOGGER.info("Closed reader for file: " + filePath);
-                } catch (IOException e) {
-                    LOGGER.log(Level.WARNING, "Error closing file reader: " + filePath, e);
-                }
-            }
+            log.error("Failed to read branches file '{}': {}", filePath, e.getMessage(), e);
         }
+
         return branches;
     }
 
@@ -75,10 +66,8 @@ public final class BankCsvReader {
 
     public static List<Borrower> readBorrowers(String filePath) {
         List<Borrower> borrowers = new ArrayList<>();
-        BufferedReader reader = null;
 
-        try {
-            reader = new BufferedReader(new FileReader(filePath, StandardCharsets.UTF_8));
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath, StandardCharsets.UTF_8))) {
             String line;
             int lineNumber = 0;
 
@@ -90,23 +79,16 @@ public final class BankCsvReader {
                 try {
                     Borrower borrower = parseBorrowerLine(line, lineNumber);
                     borrowers.add(borrower);
+                    log.info("Parsed Borrower at line {}: {} ({})", lineNumber, borrower.getPassportNum(), borrower.getFullName());
                 } catch (InvalidDataException e) {
-                    LOGGER.log(Level.WARNING, "Skipping invalid borrower row #" + lineNumber + ": " + e.getMessage());
+                    log.warn("Skipping invalid borrower row #{}: {}", lineNumber, e.getMessage());
                 }
             }
-            LOGGER.info("Successfully loaded " + borrowers.size() + " borrowers from " + filePath);
+            log.info("Successfully loaded {} borrowers from {}", borrowers.size(), filePath);
         } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Failed to read borrowers file: " + filePath, e);
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                    LOGGER.info("Closed reader for file: " + filePath);
-                } catch (IOException e) {
-                    LOGGER.log(Level.WARNING, "Error closing file reader: " + filePath, e);
-                }
-            }
+            log.error("Failed to read borrowers file '{}': {}", filePath, e.getMessage(), e);
         }
+
         return borrowers;
     }
 
@@ -123,7 +105,6 @@ public final class BankCsvReader {
             double income = Double.parseDouble(parts[3].trim());
             return new Borrower(parts[0], parts[1], birthDate, income);
         } catch (DateTimeParseException | IllegalArgumentException e) {
-            // multi-catch for parsing and domain validation errors
             throw new InvalidDataException("Invalid borrower data at line #" + lineNumber + ": " + e.getMessage(), e);
         }
     }

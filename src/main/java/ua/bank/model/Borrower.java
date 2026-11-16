@@ -2,13 +2,10 @@ package ua.bank.model;
 
 import java.time.LocalDate;
 import java.util.Objects;
-import java.util.logging.Logger;
 import ua.bank.util.BankUtils;
 import ua.common.BaseEntity;
 
 public class Borrower extends BaseEntity {
-
-    private static final Logger LOGGER = Logger.getLogger(Borrower.class.getName());
 
     private final String passportNum;
     private final String fullName;
@@ -22,7 +19,6 @@ public class Borrower extends BaseEntity {
         BankUtils.validateBorrowerAge(birthDate);
         this.birthDate = birthDate;
         setMonthlyIncome(monthlyIncome);
-        LOGGER.info("Created Borrower: " + this.passportNum + " (" + this.fullName + ")");
     }
 
     public String getPassportNum() { return passportNum; }
