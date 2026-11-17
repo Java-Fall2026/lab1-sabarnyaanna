@@ -1,108 +1,72 @@
 package ua.bank;
 
+import java.nio.file.Path;
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.DoubleSummaryStatistics;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ua.bank.model.BankBranch;
+import ua.bank.config.AppConfig;
+import ua.bank.io.DataLoader;
+import ua.bank.io.FileStorage;
+import ua.bank.io.LoadResult;
 import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
-import ua.bank.model.LoanType;
 import ua.bank.repository.BorrowerRepository;
 import ua.bank.repository.LoanContractRepository;
-import ua.bank.repository.SortOrder;
-import ua.bank.util.BankUtils;
 
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("=== Запуск програми (Лабораторна робота №5: Сортування та Stream API) ===");
+        log.info("=== Запуск програми (Лабораторна робота №6: JSON/YAML, Jackson, Jakarta Validation) ===");
 
-        // 1. Наповнення доменних репозиторіїв
+        // 1. Читання конфігурації з app.properties
+        AppConfig config = AppConfig.loadFrom(Path.of("app.properties"));
+        Path borrowersJsonPath = config.getRequiredPath("data.borrowers.file");
+        Path contractsYamlPath = config.getRequiredPath("data.contracts.file");
+        Path brokenJsonPath = config.getRequiredPath("data.broken.file");
+        Path exportedYamlPath = config.getRequiredPath("data.output.borrowers.file");
+
+        FileStorage<Borrower> borrowerStorage = new FileStorage<>(Borrower.class);
+        FileStorage<LoanContract> contractStorage = new FileStorage<>(LoanContract.class);
+        DataLoader loader = new DataLoader();
+
         BorrowerRepository borrowerRepo = new BorrowerRepository();
         LoanContractRepository contractRepo = new LoanContractRepository();
 
-        Borrower b1 = new Borrower("CC300300", "Олена Ковальчук", LocalDate.of(1995, 5, 14), 35000.0);
-        Borrower b2 = new Borrower("AA100100", "Тарас Бондар", LocalDate.of(1988, 9, 22), 55000.0);
-        Borrower b3 = new Borrower("BB200200", "Наталія Ткачук", LocalDate.of(1992, 11, 30), 55000.0);
-        Borrower b4 = new Borrower("DD400400", "Андрій Мельник", LocalDate.of(1985, 2, 10), 22000.0);
+        // 2. Завантаження обох файлів (JSON та YAML)
+        LoadResult borrowersResult = loader.loadInto(borrowersJsonPath, borrowerStorage, borrowerRepo);
+        LoadResult contractsResult = loader.loadInto(contractsYamlPath, contractStorage, contractRepo);
 
-        borrowerRepo.add(b1);
-        borrowerRepo.add(b2);
-        borrowerRepo.add(b3);
-        borrowerRepo.add(b4);
+        System.out.printf("%nПідсумок завантаження позичальників (JSON): прочитано=%d, додано=%d, відкинуто=%d%n",
+                borrowersResult.readCount(), borrowersResult.addedCount(), borrowersResult.rejected().size());
+        borrowersResult.rejected().forEach(r -> System.out.println("  -> " + r));
 
-        BankBranch kyiv = BankBranch.of("BR-01", "Київ");
-        BankBranch chernivtsi = BankBranch.of("BR-02", "Чернівці");
-        BankBranch lviv = BankBranch.of("BR-03", "Львів");
+        System.out.printf("%nПідсумок завантаження договорів (YAML): прочитано=%d, додано=%d, відкинуто=%d%n",
+                contractsResult.readCount(), contractsResult.addedCount(), contractsResult.rejected().size());
+        contractsResult.rejected().forEach(r -> System.out.println("  -> " + r));
 
-        contractRepo.add(new LoanContract("LN-03", b1, kyiv, LoanType.MORTGAGE, 800000.0, LocalDate.of(2026, 5, 10), 120));
-        contractRepo.add(new LoanContract("LN-01", b2, chernivtsi, LoanType.AUTO, 450000.0, LocalDate.of(2026, 7, 15), 36));
-        contractRepo.add(new LoanContract("LN-04", b3, kyiv, LoanType.MORTGAGE, 800000.0, LocalDate.of(2026, 8, 20), 60));
-        contractRepo.add(new LoanContract("LN-02", b4, lviv, LoanType.CONSUMER, 120000.0, LocalDate.of(2026, 9, 1), 12));
+        // 3. Спроба завантажити broken.json (програма не падає, помилка фіксується у LoadResult)
+        System.out.println("\n=== Спроба завантажити синтаксично пошкоджений broken.json ===");
+        LoadResult brokenResult = loader.loadInto(brokenJsonPath, borrowerStorage, borrowerRepo);
+        brokenResult.rejected().forEach(r -> System.out.println("  -> " + r));
 
-        // 2. Сортування за природним порядком, за identity (ASC / DESC) та багаторівневим компаратором
-        System.out.println("\n=== Сортування позичальників (природний порядок: passportNum) ===");
-        borrowerRepo.findAllSortedByNaturalOrder().forEach(System.out::println);
+        // 4. Зміна вмісту репозиторію та збереження у новий файл (YAML)
+        System.out.println("\n=== Оновлення репозиторію та експорт у новий файл ===");
+        borrowerRepo.removeByIdentity("DD100004");
+        borrowerRepo.add(new Borrower("ZZ999888", "Новий Клієнт Експорту", LocalDate.of(1994, 4, 20), 75000.0));
 
-        System.out.println("\n=== Сортування договорів за identity (DESC) ===");
-        contractRepo.findAllSortedByIdentity(SortOrder.DESC).forEach(System.out::println);
-
-        System.out.println("\n=== Багаторівневе сортування договорів (сума DESC -> термін ASC) ===");
-        contractRepo.findAllSortedByAmountDescThenTermAsc().forEach(System.out::println);
-
-        // 3. Демонстрація TreeSet із компаратором, неузгодженим з equals
-        System.out.println("\n=== TreeSet з компаратором за доходом (не узгодженим з equals) ===");
-        Set<Borrower> treeSetByIncome = new TreeSet<>(Comparator.comparingDouble(Borrower::getMonthlyIncome));
-        treeSetByIncome.add(b2); // дохід 55000.0
-        boolean addedSameIncome = treeSetByIncome.add(b3); // інший паспорт, але той самий дохід 55000.0!
-        System.out.println("Чи додано другого позичальника з таким самим доходом 55000 у TreeSet: " + addedSameIncome);
-        System.out.println("Розмір TreeSet: " + treeSetByIncome.size() + " (TreeSet вважає елементи дублікатами, бо compare == 0)");
-
-        // 4. Пошук через Stream API (діапазон, назва, кілька умов, distinct)
-        System.out.println("\n=== Пошук договорів у діапазоні сум [400 000 .. 900 000] ===");
-        contractRepo.findByPrincipalRange(400_000.0, 900_000.0).forEach(System.out::println);
-
-        System.out.println("\n=== Унікальні міста відділень у договорах (map + distinct + sorted) ===");
-        System.out.println(contractRepo.findDistinctBranchCities());
-
-        // 5. Групування та агрегація
-        System.out.println("\n=== Групування договорів за типом (groupingBy + counting) ===");
-        System.out.println("Кількість за типами: " + contractRepo.countByLoanType());
-        System.out.println("Загальна сума всіх кредитів (reduce): "
-                + BankUtils.formatMoney(contractRepo.calculateTotalPrincipal()));
-
-        DoubleSummaryStatistics incomeStats = borrowerRepo.getIncomeStatistics();
-        System.out.printf("Статистика доходів: мін=%.2f, макс=%.2f, середній=%.2f%n",
-                incomeStats.getMin(), incomeStats.getMax(), incomeStats.getAverage());
-
-        // 6. Обробка порожнього результату через Optional (без isPresent() + get())
-        System.out.println("\n=== Обробка порожнього результату (Optional) ===");
-        Optional<LoanContract> missingContract = contractRepo.findFirstByTypeCityAndMinDate(
-                LoanType.COMMERCIAL, "Одеса", LocalDate.of(2026, 1, 1)
-        );
-        String message = missingContract
-                .map(c -> "Знайдено: " + c.contractId())
-                .orElse("Договір за заданими умовами не знайдено (Optional.empty)");
-        System.out.println(message);
-
-        // 7. Повторне використання вже спожитого Stream -> IllegalStateException
-        System.out.println("\n=== Повторне використання спожитого Stream ===");
-        Stream<Borrower> borrowerStream = borrowerRepo.stream();
-        long count = borrowerStream.count(); // термінальна операція спожила стрім
-        System.out.println("Перший виклик count(): " + count);
         try {
-            borrowerStream.forEach(System.out::println); // повторний виклик на тому ж Stream
-        } catch (IllegalStateException e) {
-            log.error("Очікувана помилка повторного використання Stream: {}", e.getMessage());
+            borrowerStorage.save(exportedYamlPath, borrowerRepo.getAll());
+        } catch (Exception e) {
+            log.error("Помилка збереження файлу {}: {}", exportedYamlPath, e.getMessage(), e);
         }
+
+        // 5. Повторне завантаження збереженого файлу у чистий репозиторій
+        BorrowerRepository reloadedRepo = new BorrowerRepository();
+        LoadResult reloadResult = loader.loadInto(exportedYamlPath, borrowerStorage, reloadedRepo);
+        System.out.printf("Повторне завантаження '%s': прочитано=%d, додано=%d, відкинуто=%d%n",
+                exportedYamlPath, reloadResult.readCount(), reloadResult.addedCount(), reloadResult.rejected().size());
 
         log.info("=== Роботу програми успішно завершено ===");
     }

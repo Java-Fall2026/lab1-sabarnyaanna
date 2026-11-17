@@ -1,22 +1,47 @@
 package ua.bank.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.util.Objects;
 import ua.bank.util.BankUtils;
 import ua.common.BaseEntity;
 
+@JsonIgnoreProperties({"createdAt"})
 public class Borrower extends BaseEntity implements Comparable<Borrower> {
 
+    @NotBlank(message = "Номер паспорта не може бути порожнім")
+    @Pattern(regexp = "^[A-ZА-ЯІЇЄ]{2}\\d{6}$", message = "Номер паспорта повинен мати 2 великі літери та 6 цифр")
     private final String passportNum;
+
+    @NotBlank(message = "ПІБ позичальника не може бути порожнім")
+    @Size(min = 3, max = 100, message = "ПІБ позичальника має містити від 3 до 100 символів")
     private final String fullName;
+
+    @NotNull(message = "Дата народження є обов'язковою")
+    @Past(message = "Дата народження повинна бути в минулому")
     private final LocalDate birthDate;
+
+    @Positive(message = "Місячний дохід повинен бути більшим за 0")
     private double monthlyIncome;
 
-    public Borrower(String passportNum, String fullName, LocalDate birthDate, double monthlyIncome) {
+    @JsonCreator
+    public Borrower(
+            @JsonProperty("passportNum") String passportNum,
+            @JsonProperty("fullName") String fullName,
+            @JsonProperty("birthDate") LocalDate birthDate,
+            @JsonProperty("monthlyIncome") double monthlyIncome
+    ) {
         super();
-        this.passportNum = BankUtils.validateAndTrimText(passportNum, "passportNum");
-        this.fullName = BankUtils.validateAndTrimText(fullName, "fullName");
-        BankUtils.validateBorrowerAge(birthDate);
+        this.passportNum = passportNum == null ? null : passportNum.trim();
+        this.fullName = fullName == null ? null : fullName.trim();
         this.birthDate = birthDate;
         setMonthlyIncome(monthlyIncome);
     }
@@ -27,7 +52,6 @@ public class Borrower extends BaseEntity implements Comparable<Borrower> {
     public double getMonthlyIncome() { return monthlyIncome; }
 
     public final void setMonthlyIncome(double monthlyIncome) {
-        BankUtils.validatePositiveAmount(monthlyIncome, "monthlyIncome");
         this.monthlyIncome = monthlyIncome;
     }
 
@@ -50,7 +74,6 @@ public class Borrower extends BaseEntity implements Comparable<Borrower> {
     @Override
     public String toString() {
         return "Borrower{passportNum='" + passportNum + "', fullName='" + fullName +
-                "', birthDate=" + birthDate + ", monthlyIncome=" + BankUtils.formatMoney(monthlyIncome) +
-                ", createdAt=" + createdAt + '}';
+                "', birthDate=" + birthDate + ", monthlyIncome=" + BankUtils.formatMoney(monthlyIncome) + '}';
     }
 }

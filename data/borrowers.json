@@ -1,0 +1,17 @@
+[
+  { "passportNum": "AA100001", "fullName": "Олена Ковальчук", "birthDate": "1995-05-14", "monthlyIncome": 35000.0 },
+  { "passportNum": "BB100002", "fullName": "Тарас Бондар", "birthDate": "1988-09-22", "monthlyIncome": 55000.0 },
+  { "passportNum": "CC100003", "fullName": "Наталія Ткачук", "birthDate": "1992-11-30", "monthlyIncome": 48000.0 },
+  { "passportNum": "DD100004", "fullName": "Андрій Мельник", "birthDate": "1985-02-10", "monthlyIncome": 28000.0 },
+  { "passportNum": "EE100005", "fullName": "Ірина Савченко", "birthDate": "1998-07-19", "monthlyIncome": 31000.0 },
+  { "passportNum": "INVALID1", "fullName": "Невірний Паспорт", "birthDate": "1990-01-01", "monthlyIncome": 25000.0 },
+  { "passportNum": "FF100006", "fullName": "Максим Шевченко", "birthDate": "1991-03-25", "monthlyIncome": 62000.0 },
+  { "passportNum": "GG100007", "fullName": "Оксана Лисенко", "birthDate": "1994-12-05", "monthlyIncome": 41000.0 },
+  { "passportNum": "HH100008", "fullName": "Дмитро Кравченко", "birthDate": "1987-06-18", "monthlyIncome": -5000.0 },
+  { "passportNum": "KK100009", "fullName": "Світлана Мороз", "birthDate": "1996-08-11", "monthlyIncome": 39000.0 },
+  { "passportNum": "MM100010", "fullName": "Віктор Поліщук", "birthDate": "2030-05-01", "monthlyIncome": 45000.0 },
+  { "passportNum": "NN100011", "fullName": "Юлія Данилюк", "birthDate": "1993-04-02", "monthlyIncome": 52000.0 },
+  { "passportNum": "PP100012", "fullName": "Сергій Романенко", "birthDate": "1989-10-14", "monthlyIncome": 67000.0 },
+  { "passportNum": "AA100001", "fullName": "Олена Ковальчук (Дублікат)", "birthDate": "1995-05-14", "monthlyIncome": 35000.0 },
+  { "passportNum": "TT100013", "fullName": "Галина Яковенко", "birthDate": "1997-01-29", "monthlyIncome": 33000.0 }
+]

@@ -49,16 +49,16 @@ class BankLab3Test {
     }
 
     @Test
-    @DisplayName("4. InvalidDataException при порожньому коді відділення (номер рядка та причина IllegalArgumentException)")
-    void shouldThrowInvalidDataExceptionWithCauseWhenBranchBlank() {
+    @DisplayName("4. InvalidDataException при некоректному форматі доходу (номер рядка та причина NumberFormatException)")
+    void shouldThrowInvalidDataExceptionWithCauseWhenIncomeNotNumber() {
         InvalidDataException ex = assertThrows(
                 InvalidDataException.class,
-                () -> BankCsvReader.parseBranchLine("   ,Київ", 7)
+                () -> BankCsvReader.parseBorrowerLine("AA111222,Іван Петренко,1995-05-14,not_a_number", 7)
         );
 
         assertTrue(ex.getMessage().contains("#7"), "Повідомлення має містити номер рядка #7");
         assertNotNull(ex.getCause());
-        assertInstanceOf(IllegalArgumentException.class, ex.getCause());
+        assertInstanceOf(NumberFormatException.class, ex.getCause());
     }
 
     @Test
@@ -75,16 +75,15 @@ class BankLab3Test {
     }
 
     @Test
-    @DisplayName("6. InvalidDataException при віці позичальника < 21 року (номер рядка та причина IllegalArgumentException)")
-    void shouldThrowInvalidDataExceptionWhenBorrowerUnderage() {
+    @DisplayName("6. InvalidDataException при порожньому рядку CSV (номер рядка #15)")
+    void shouldThrowInvalidDataExceptionWhenCsvLineIsEmpty() {
         InvalidDataException ex = assertThrows(
                 InvalidDataException.class,
-                () -> BankCsvReader.parseBorrowerLine("AA111222,Іван Петренко,2010-01-01,25000", 15)
+                () -> BankCsvReader.parseBorrowerLine("   ", 15)
         );
 
         assertTrue(ex.getMessage().contains("#15"), "Повідомлення має містити номер рядка #15");
-        assertNotNull(ex.getCause());
-        assertInstanceOf(IllegalArgumentException.class, ex.getCause());
+        assertNull(ex.getCause());
     }
 
     @Test
