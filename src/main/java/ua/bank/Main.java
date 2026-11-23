@@ -17,7 +17,7 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("=== Запуск програми (Лабораторна робота №3) ===");
+        log.info("Starting application (Lab 3: Exceptions, CSV I/O, Logging)");
 
         // 1. Зчитування даних з CSV-файлів
         List<BankBranch> branches = BankCsvReader.readBranches("data/branches.csv");
@@ -31,17 +31,21 @@ public class Main {
 
         // 2. Демонстрація обробки відсутнього файлу
         System.out.println("\n=== Спроба прочитати неіснуючий файл ===");
-        BankCsvReader.readBranches("data/missing_file.csv");
+        List<BankBranch> missingBranches = BankCsvReader.readBranches("data/missing_file.csv");
+        if (missingBranches.isEmpty()) {
+            System.out.println("Файл data/missing_file.csv не знайдено, завантажено 0 записів.");
+        }
 
         // 3. Пряма демонстрація власного виключення InvalidDataException
         System.out.println("\n=== Демонстрація InvalidDataException ===");
         try {
             BankCsvReader.parseBorrowerLine("XX000111,Тест Користувач,1990-01-01,not_a_number", 99);
         } catch (InvalidDataException e) {
-            log.warn("Перехоплено власне виключення: {}", e.getMessage());
+            log.warn("Caught custom InvalidDataException: {}", e.getMessage());
+            System.out.println("Помилка розбору рядка CSV: " + e.getMessage());
         }
 
-        // 4. Створення кредитного договору та демонстрація порушення правил домену (включно із сеттером)
+        // 4. Створення кредитного договору та демонстрація порушення правил домену (у сеттері та конструкторі)
         System.out.println("\n=== Порушення правил домену в сеттері та конструкторі ===");
         if (!branches.isEmpty() && !borrowers.isEmpty()) {
             Borrower validBorrower = borrowers.get(0);
@@ -50,24 +54,30 @@ public class Main {
             try {
                 validBorrower.setMonthlyIncome(-1);
             } catch (IllegalArgumentException e) {
-                log.error("Помилка зміни доходу через сеттер для {}: {}", validBorrower.getPassportNum(), e.getMessage());
+                log.warn("Rejected invalid monthlyIncome in setter for {}: {}",
+                        validBorrower.getPassportNum(), e.getMessage());
+                System.out.println("Не вдалося оновити дохід позичальника "
+                        + validBorrower.getPassportNum() + ": " + e.getMessage());
             }
 
             LoanContract contract = new LoanContract(
                     "LN-2026-301", validBorrower, validBranch, LoanType.MORTGAGE,
                     500000.0, LocalDate.of(2026, 10, 15), 24
             );
-            log.info("Створено договір: {}, щомісячний платіж = {}",
+            log.info("Created contract {}, monthlyPayment={}",
                     contract.contractId(), BankUtils.formatMoney(BankUtils.monthlyPayment(contract)));
+            System.out.println("Створено договір: " + contract.contractId()
+                    + ", щомісячний платіж: " + BankUtils.formatMoney(BankUtils.monthlyPayment(contract)));
 
             try {
                 new LoanContract("LN-ERR", validBorrower, validBranch, LoanType.AUTO,
                         9_000_000.0, LocalDate.of(2026, 10, 15), 12);
             } catch (IllegalArgumentException e) {
-                log.error("Порушення бізнес-правила при створенні договору: {}", e.getMessage());
+                log.error("Domain business rule violated during contract creation: {}", e.getMessage());
+                System.out.println("Помилка створення кредитного договору: " + e.getMessage());
             }
         }
 
-        log.info("=== Роботу програми успішно завершено ===");
+        log.info("Application finished successfully");
     }
 }

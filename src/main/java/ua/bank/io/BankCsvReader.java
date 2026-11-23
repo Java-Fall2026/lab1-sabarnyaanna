@@ -1,6 +1,7 @@
 package ua.bank.io;
 
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -42,8 +43,12 @@ public final class BankCsvReader {
                 }
             }
             log.info("Successfully loaded {} branches from {}", branches.size(), filePath);
+        } catch (FileNotFoundException e) {
+            log.warn("Branches file not found: {}", filePath);
         } catch (IOException e) {
             log.error("Failed to read branches file '{}': {}", filePath, e.getMessage(), e);
+        } finally {
+            log.info("Finished reading {}", filePath);
         }
 
         return branches;
@@ -85,8 +90,12 @@ public final class BankCsvReader {
                 }
             }
             log.info("Successfully loaded {} borrowers from {}", borrowers.size(), filePath);
+        } catch (FileNotFoundException e) {
+            log.warn("Borrowers file not found: {}", filePath);
         } catch (IOException e) {
             log.error("Failed to read borrowers file '{}': {}", filePath, e.getMessage(), e);
+        } finally {
+            log.info("Finished reading {}", filePath);
         }
 
         return borrowers;
