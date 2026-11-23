@@ -21,10 +21,10 @@ public class FileStorage<T> {
     private final ObjectMapper jsonMapper;
     private final ObjectMapper yamlMapper;
 
-    public FileStorage(Class<T> entityClass) {
+   public FileStorage(Class<T> entityClass) {
         this.entityClass = Objects.requireNonNull(entityClass, "entityClass must not be null");
-        this.jsonMapper = configureMapper(new ObjectMapper());
-        this.yamlMapper = configureMapper(new ObjectMapper(new YAMLFactory()));
+        this.jsonMapper = JacksonFactory.createJsonMapper();
+        this.yamlMapper = JacksonFactory.createYamlMapper();
     }
 
     private ObjectMapper configureMapper(ObjectMapper mapper) {

@@ -31,4 +31,16 @@ public class AppConfig {
         }
         return Path.of(value.trim());
     }
+
+    public int getRequiredInt(String key) {
+        String value = properties.getProperty(key);
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("Відсутній обов'язковий ключ у конфігурації: " + key);
+        }
+        try {
+            return Integer.parseInt(value.trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Некоректне ціле число для ключа '" + key + "': " + value, e);
+        }
+    }
 }

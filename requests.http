@@ -1,0 +1,123 @@
+### 1. Отримати всіх позичальників (200 OK)
+GET http://localhost:8080/api/borrowers
+Accept: application/json
+
+### 2. Сортування, фільтрація та пагінація позичальників (200 OK)
+GET http://localhost:8080/api/borrowers?sort=monthlyIncome&order=DESC&minIncome=30000&limit=5&offset=0
+Accept: application/json
+
+### 3. Статистика доходів позичальників — агрегація (200 OK)
+GET http://localhost:8080/api/borrowers/statistics
+Accept: application/json
+
+### 4. Отримати позичальника за паспортом (200 OK)
+GET http://localhost:8080/api/borrowers/AA100001
+Accept: application/json
+
+### 5. Неіснуючий позичальник (404 Not Found)
+GET http://localhost:8080/api/borrowers/ZZ999999
+Accept: application/json
+
+### 6. Некоректний параметр запиту (400 Bad Request)
+GET http://localhost:8080/api/borrowers?sort=unknownField&order=WRONG
+Accept: application/json
+
+### 7. Створити нового позичальника (201 Created + Location)
+POST http://localhost:8080/api/borrowers
+Content-Type: application/json; charset=UTF-8
+
+{
+  "passportNum": "КК777888",
+  "fullName": "Софія Чорновіл",
+  "birthDate": "1996-03-18",
+  "monthlyIncome": 47000.0
+}
+
+### 8. Дублікат позичальника (409 Conflict)
+POST http://localhost:8080/api/borrowers
+Content-Type: application/json; charset=UTF-8
+
+{
+  "passportNum": "КК777888",
+  "fullName": "Софія Чорновіл",
+  "birthDate": "1996-03-18",
+  "monthlyIncome": 47000.0
+}
+
+### 9. Помилка валідації тіла запиту (400 Bad Request)
+POST http://localhost:8080/api/borrowers
+Content-Type: application/json; charset=UTF-8
+
+{
+  "passportNum": "bad",
+  "fullName": "А",
+  "birthDate": "2030-01-01",
+  "monthlyIncome": -500.0
+}
+
+### 10. Невірний Content-Type (415 Unsupported Media Type)
+POST http://localhost:8080/api/borrowers
+Content-Type: text/plain
+
+plain text body
+
+### 11. Оновити існуючого позичальника (200 OK)
+PUT http://localhost:8080/api/borrowers/КК777888
+Content-Type: application/json; charset=UTF-8
+
+{
+  "passportNum": "КК777888",
+  "fullName": "Софія Чорновіл-Бондаренко",
+  "birthDate": "1996-03-18",
+  "monthlyIncome": 54000.0
+}
+
+### 12. Незбіг identity у шляху і в тілі PUT (400 Bad Request)
+PUT http://localhost:8080/api/borrowers/AA100001
+Content-Type: application/json; charset=UTF-8
+
+{
+  "passportNum": "КК777888",
+  "fullName": "Софія Чорновіл",
+  "birthDate": "1996-03-18",
+  "monthlyIncome": 54000.0
+}
+
+### 13. Видалити позичальника (204 No Content)
+DELETE http://localhost:8080/api/borrowers/КК777888
+
+### 14. Заборонений HTTP-метод PATCH або POST з ID (405 Method Not Allowed)
+POST http://localhost:8080/api/borrowers/AA100001
+Content-Type: application/json
+
+{}
+
+### 15. Отримати всі кредитні договори та групування за типом (200 OK)
+GET http://localhost:8080/api/contracts?loanType=MORTGAGE&sort=principalAmount&order=DESC
+Accept: application/json
+
+### 16. Групування договорів за типом кредиту (200 OK)
+GET http://localhost:8080/api/contracts/grouped
+Accept: application/json
+
+### 17. Створити кредитний договір із перевищенням ліміту 60x доходу — власна анотація @ValidLoanLimit (400 Bad Request)
+POST http://localhost:8080/api/contracts
+Content-Type: application/json; charset=UTF-8
+
+{
+  "contractId": "LN-2026-99",
+  "borrower": {
+    "passportNum": "AA100001",
+    "fullName": "Олена Ковальчук",
+    "birthDate": "1995-05-14",
+    "monthlyIncome": 35000.0
+  },
+  "branch": {
+    "branchCode": "BR-01",
+    "city": "Київ"
+  },
+  "loanType": "MORTGAGE",
+  "principalAmount": 9000000.0,
+  "issueDate": "2026-11-23",
+  "termMonths": 120
+}

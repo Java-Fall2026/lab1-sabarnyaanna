@@ -9,3 +9,5 @@ bin/
 .vscode/
 .DS_Store
 data/exported_borrowers.yaml
+data/exported_contracts.yaml
+data/exported_borrowers.json

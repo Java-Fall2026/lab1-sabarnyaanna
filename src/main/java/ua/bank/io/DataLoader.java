@@ -29,7 +29,8 @@ public class DataLoader {
         try {
             rawItems = storage.load(file);
         } catch (Exception e) {
-            RejectedRecord fileError = new RejectedRecord(0, "file", "Помилка читання файлу '" + file + "': " + e.getMessage());
+            RejectedRecord fileError = new RejectedRecord(0, "file",
+                    "Помилка читання файлу '" + file + "': " + e.getMessage());
             rejected.add(fileError);
             log.error("File '{}' failed to load: {}", file, e.getMessage());
             log.warn("Rejected record -> {}", fileError);
@@ -63,11 +64,12 @@ public class DataLoader {
                 continue;
             }
 
-            boolean added = repository.add(item);
+            boolean added = repository.addIfAbsent(item);
             if (added) {
                 addedCount++;
             } else {
-                RejectedRecord dup = new RejectedRecord(recordNumber, "identity", "Дублікат унікального ідентифікатора");
+                RejectedRecord dup = new RejectedRecord(recordNumber, "identity",
+                        "Дублікат унікального ідентифікатора");
                 rejected.add(dup);
                 log.warn("Rejected record -> {}", dup);
             }

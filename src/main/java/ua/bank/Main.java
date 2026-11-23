@@ -1,7 +1,6 @@
 package ua.bank;
 
 import java.nio.file.Path;
-import java.time.LocalDate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ua.bank.config.AppConfig;
@@ -12,20 +11,21 @@ import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
 import ua.bank.repository.BorrowerRepository;
 import ua.bank.repository.LoanContractRepository;
+import ua.bank.web.ApiServer;
 
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
-    public static void main(String[] args) {
-        log.info("=== Запуск програми (Лабораторна робота №6: JSON/YAML, Jackson, Jakarta Validation) ===");
+    public static void main(String[] args) throws Exception {
+        log.info("Starting application (Lab 7: Servlets and REST API)");
 
-        // 1. Читання конфігурації з app.properties
         AppConfig config = AppConfig.loadFrom(Path.of("app.properties"));
-        Path borrowersJsonPath = config.getRequiredPath("data.borrowers.file");
-        Path contractsYamlPath = config.getRequiredPath("data.contracts.file");
-        Path brokenJsonPath = config.getRequiredPath("data.broken.file");
-        Path exportedYamlPath = config.getRequiredPath("data.output.borrowers.file");
+        int serverPort = config.getRequiredInt("server.port");
+        Path borrowersInput = config.getRequiredPath("data.borrowers.file");
+        Path contractsInput = config.getRequiredPath("data.contracts.file");
+        Path borrowersOutput = config.getRequiredPath("data.output.borrowers.file");
+        Path contractsOutput = config.getRequiredPath("data.output.contracts.file");
 
         FileStorage<Borrower> borrowerStorage = new FileStorage<>(Borrower.class);
         FileStorage<LoanContract> contractStorage = new FileStorage<>(LoanContract.class);
@@ -34,40 +34,32 @@ public class Main {
         BorrowerRepository borrowerRepo = new BorrowerRepository();
         LoanContractRepository contractRepo = new LoanContractRepository();
 
-        // 2. Завантаження обох файлів (JSON та YAML)
-        LoadResult borrowersResult = loader.loadInto(borrowersJsonPath, borrowerStorage, borrowerRepo);
-        LoadResult contractsResult = loader.loadInto(contractsYamlPath, contractStorage, contractRepo);
+        LoadResult borrowersRes = loader.loadInto(borrowersInput, borrowerStorage, borrowerRepo);
+        LoadResult contractsRes = loader.loadInto(contractsInput, contractStorage, contractRepo);
 
-        System.out.printf("%nПідсумок завантаження позичальників (JSON): прочитано=%d, додано=%d, відкинуто=%d%n",
-                borrowersResult.readCount(), borrowersResult.addedCount(), borrowersResult.rejected().size());
-        borrowersResult.rejected().forEach(r -> System.out.println("  -> " + r));
+        System.out.printf("Завантажено позичальників: прочитано=%d, додано=%d, відкинуто=%d%n",
+                borrowersRes.readCount(), borrowersRes.addedCount(), borrowersRes.rejected().size());
+        System.out.printf("Завантажено договорів: прочитано=%d, додано=%d, відкинуто=%d%n",
+                contractsRes.readCount(), contractsRes.addedCount(), contractsRes.rejected().size());
 
-        System.out.printf("%nПідсумок завантаження договорів (YAML): прочитано=%d, додано=%d, відкинуто=%d%n",
-                contractsResult.readCount(), contractsResult.addedCount(), contractsResult.rejected().size());
-        contractsResult.rejected().forEach(r -> System.out.println("  -> " + r));
+        ApiServer server = new ApiServer(serverPort, borrowerRepo, contractRepo);
 
-        // 3. Спроба завантажити broken.json (програма не падає, помилка фіксується у LoadResult)
-        System.out.println("\n=== Спроба завантажити синтаксично пошкоджений broken.json ===");
-        LoadResult brokenResult = loader.loadInto(brokenJsonPath, borrowerStorage, borrowerRepo);
-        brokenResult.rejected().forEach(r -> System.out.println("  -> " + r));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                server.stop();
+                borrowerStorage.save(borrowersOutput, borrowerRepo.findAll());
+                contractStorage.save(contractsOutput, contractRepo.findAll());
+                log.info("Repositories saved on shutdown to '{}' and '{}'", borrowersOutput, contractsOutput);
+            } catch (Exception e) {
+                log.error("Error during server shutdown and save: {}", e.getMessage(), e);
+            }
+        }));
 
-        // 4. Зміна вмісту репозиторію та збереження у новий файл (YAML)
-        System.out.println("\n=== Оновлення репозиторію та експорт у новий файл ===");
-        borrowerRepo.removeByIdentity("DD100004");
-        borrowerRepo.add(new Borrower("ZZ999888", "Новий Клієнт Експорту", LocalDate.of(1994, 4, 20), 75000.0));
+        server.start();
+        System.out.println("REST API сервер запущено за адресою: http://localhost:" + server.port());
+        System.out.println("Натисніть Enter у консолі або Ctrl+C для зупинки сервера та збереження даних...");
 
-        try {
-            borrowerStorage.save(exportedYamlPath, borrowerRepo.getAll());
-        } catch (Exception e) {
-            log.error("Помилка збереження файлу {}: {}", exportedYamlPath, e.getMessage(), e);
-        }
-
-        // 5. Повторне завантаження збереженого файлу у чистий репозиторій
-        BorrowerRepository reloadedRepo = new BorrowerRepository();
-        LoadResult reloadResult = loader.loadInto(exportedYamlPath, borrowerStorage, reloadedRepo);
-        System.out.printf("Повторне завантаження '%s': прочитано=%d, додано=%d, відкинуто=%d%n",
-                exportedYamlPath, reloadResult.readCount(), reloadResult.addedCount(), reloadResult.rejected().size());
-
-        log.info("=== Роботу програми успішно завершено ===");
+        System.in.read();
+        System.exit(0);
     }
 }
