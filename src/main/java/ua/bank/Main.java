@@ -11,6 +11,7 @@ import ua.bank.model.LoanContract;
 import ua.bank.model.LoanType;
 import ua.bank.model.RepaymentScheduleItem;
 import ua.bank.model.RepaymentStatus;
+import ua.bank.repository.DuplicateIdentityException;
 import ua.bank.repository.GenericRepository;
 import ua.bank.util.BankUtils;
 
@@ -19,93 +20,77 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("=== Запуск програми (Лабораторна робота №4: Generics та Колекції) ===");
+        log.info("Starting application (Lab 4: GenericRepository and Collections)");
 
-        // 1. Створення репозиторіїв для різних типів сутностей за допомогою лямбд / method references
         GenericRepository<BankBranch> branchRepo =
                 new GenericRepository<>("BankBranch", BankBranch::branchCode);
-
         GenericRepository<Borrower> borrowerRepo =
                 new GenericRepository<>("Borrower", Borrower::getPassportNum);
-
         GenericRepository<LoanContract> contractRepo =
                 new GenericRepository<>("LoanContract", LoanContract::contractId);
-
-        // Для RepaymentScheduleItem унікальний ключ — композитний (contractId + dueDate)
         GenericRepository<RepaymentScheduleItem> scheduleRepo =
                 new GenericRepository<>("RepaymentScheduleItem",
                         item -> item.getContract().contractId() + "_" + item.getDueDate());
 
-        // 2. Завантаження об'єктів із CSV (ЛР 3) та додавання в репозиторії
+        // 1. Завантаження об'єктів із CSV (включно з дублікатом у файлі) через addAll
         List<BankBranch> csvBranches = BankCsvReader.readBranches("data/branches.csv");
-        csvBranches.forEach(branchRepo::add);
+        int addedBranches = branchRepo.addAll(csvBranches);
+        System.out.printf("Відділення з CSV: прочитано=%d, додано унікальних=%d%n",
+                csvBranches.size(), addedBranches);
 
         List<Borrower> csvBorrowers = BankCsvReader.readBorrowers("data/borrowers.csv");
-        csvBorrowers.forEach(borrowerRepo::add);
+        int addedBorrowers = borrowerRepo.addAll(csvBorrowers);
+        System.out.printf("Позичальники з CSV: прочитано=%d, додано унікальних=%d%n",
+                csvBorrowers.size(), addedBorrowers);
 
-        // Створення об'єктів LoanContract та RepaymentScheduleItem з використанням усіх enum (ЛР 2)
-        Borrower borrower1 = borrowerRepo.findByIdentity("AA111222").orElseThrow();
-        Borrower borrower2 = borrowerRepo.findByIdentity("EE999000").orElseThrow();
-        BankBranch branch1 = branchRepo.findByIdentity("BR-001").orElseThrow();
-        BankBranch branch2 = branchRepo.findByIdentity("BR-002").orElseThrow();
+        Borrower b1 = borrowerRepo.findAll().get(0);
+        BankBranch br1 = branchRepo.findAll().get(0);
 
         LoanContract contract1 = new LoanContract(
-                "LN-2026-01", borrower1, branch1, LoanType.MORTGAGE,
+                "LN-2026-01", b1, br1, LoanType.MORTGAGE,
                 500000.0, LocalDate.of(2026, 10, 1), 24
         );
-        LoanContract contract2 = new LoanContract(
-                "LN-2026-02", borrower2, branch2, LoanType.AUTO,
-                300000.0, LocalDate.of(2026, 10, 5), 12
-        );
         contractRepo.add(contract1);
-        contractRepo.add(contract2);
 
         RepaymentScheduleItem item1 = RepaymentScheduleItem.of(
                 contract1, LocalDate.of(2026, 11, 1),
-                BankUtils.monthlyPayment(contract1), RepaymentStatus.PAID
-        );
-        RepaymentScheduleItem item2 = RepaymentScheduleItem.of(
-                contract1, LocalDate.of(2026, 12, 1),
                 BankUtils.monthlyPayment(contract1), RepaymentStatus.PENDING
         );
-        RepaymentScheduleItem item3 = RepaymentScheduleItem.of(
-                contract2, LocalDate.of(2026, 11, 5),
-                BankUtils.monthlyPayment(contract2), RepaymentStatus.OVERDUE
-        );
         scheduleRepo.add(item1);
-        scheduleRepo.add(item2);
-        scheduleRepo.add(item3);
 
-        // 3. Пошук за унікальним полем (findByIdentity)
-        System.out.println("\n=== Пошук за identity ===");
-        contractRepo.findByIdentity("LN-2026-01")
-                .ifPresent(c -> System.out.println("Знайдено договір: " + c
-                        + " | Ризик-коефіцієнт: " + BankUtils.getRiskCoefficient(c.loanType())));
+        // 2. Пошук знайдено / не знайдено для всіх трьох репозиторіїв
+        System.out.println("\n=== Пошук за identity (знайдено / не знайдено) ===");
+        System.out.println("BankBranch 'BR-001' знайдено: " + branchRepo.findByIdentity("BR-001").isPresent());
+        System.out.println("BankBranch 'BR-999' знайдено: " + branchRepo.findByIdentity("BR-999").isPresent());
 
-        System.out.println("Пошук неіснуючого договору 'LN-999': "
-                + contractRepo.findByIdentity("LN-999").isPresent());
+        System.out.println("Borrower '" + b1.getPassportNum() + "' знайдено: "
+                + borrowerRepo.findByIdentity(b1.getPassportNum()).isPresent());
+        System.out.println("Borrower 'ZZ000000' знайдено: "
+                + borrowerRepo.findByIdentity("ZZ000000").isPresent());
 
-        // 4. Демонстрація роботи з дубльованими даними
-        System.out.println("\n=== Демонстрація дубльованих даних ===");
-        BankBranch duplicateBranch = BankBranch.of("BR-001", "Інше Місто (дублікат коду)");
-        boolean addedDuplicateBranch = branchRepo.add(duplicateBranch);
-        System.out.println("Чи додано дублікат відділення BR-001: " + addedDuplicateBranch);
-        System.out.println("Актуальне відділення BR-001 у репозиторії: "
-                + branchRepo.findByIdentity("BR-001").orElseThrow());
+        System.out.println("LoanContract 'LN-2026-01' знайдено: "
+                + contractRepo.findByIdentity("LN-2026-01").isPresent());
+        System.out.println("LoanContract 'LN-MISSING' знайдено: "
+                + contractRepo.findByIdentity("LN-MISSING").isPresent());
 
-        Borrower duplicateBorrower = new Borrower(
-                "AA111222", "Інший ПІБ Дублікат", LocalDate.of(1990, 1, 1), 50000.0
-        );
-        boolean addedDuplicateBorrower = borrowerRepo.add(duplicateBorrower);
-        System.out.println("Чи додано дублікат позичальника AA111222: " + addedDuplicateBorrower);
+        // 3. Демонстрація add (кидає DuplicateIdentityException) проти addIfAbsent (повертає false)
+        System.out.println("\n=== Дублікати: add() з виключенням проти addIfAbsent() ===");
+        BankBranch duplicateBranch = BankBranch.of("BR-001", "Інше Місто");
+        try {
+            branchRepo.add(duplicateBranch);
+        } catch (DuplicateIdentityException e) {
+            System.out.println("Перехоплено виключення при add(): " + e.getMessage());
+        }
 
-        // 5. Видалення та отримання всіх елементів
-        System.out.println("\n=== Видалення та список усіх елементів ===");
-        scheduleRepo.remove(item3);
-        System.out.println("Залишилось платежів у графіку: " + scheduleRepo.getAll().size());
-        scheduleRepo.getAll().forEach(p ->
-                System.out.println(" - " + p + " -> " + BankUtils.getAvailableAction(p.getStatus())));
+        boolean addedViaIfAbsent = branchRepo.addIfAbsent(duplicateBranch);
+        System.out.println("Результат addIfAbsent() на тому ж дублікаті: " + addedViaIfAbsent);
 
-        log.info("=== Роботу програми успішно завершено ===");
+        // 4. Видалення існуючого та відсутнього елемента
+        System.out.println("\n=== Видалення елементів ===");
+        System.out.println("Видалення існуючого платежу: " + scheduleRepo.remove(item1));
+        System.out.println("Видалення відсутнього договору 'LN-NOT-EXISTS': "
+                + contractRepo.removeByIdentity("LN-NOT-EXISTS"));
+
+        log.info("Application finished successfully");
     }
 }

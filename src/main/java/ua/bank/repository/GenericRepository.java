@@ -1,5 +1,6 @@
 package ua.bank.repository;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,26 +22,51 @@ public class GenericRepository<T> {
         this.identityExtractor = Objects.requireNonNull(identityExtractor, "identityExtractor must not be null");
     }
 
-    /**
-     * Додає елемент у репозиторій. Якщо елемент із таким identity вже існує — повертає false і не перезаписує його.
-     */
-    public boolean add(T item) {
+    public void add(T item) {
         if (item == null) {
+            log.error("[{}] Attempted to add null item", entityName);
             throw new IllegalArgumentException(entityName + " item must not be null");
         }
-        String id = normalizeId(identityExtractor.extractIdentity(item));
+        String id = normalizeId(identityExtractor.identityOf(item));
         if (storage.containsKey(id)) {
-            log.warn("[{}] Duplicate identity '{}' detected. Item was not added: {}", entityName, id, item);
+            DuplicateIdentityException ex = new DuplicateIdentityException(entityName, id);
+            log.error("[{}] {}", entityName, ex.getMessage());
+            throw ex;
+        }
+        storage.put(id, item);
+        log.info("[{}] Added item with identity '{}'", entityName, id);
+    }
+
+    public boolean addIfAbsent(T item) {
+        if (item == null) {
+            log.error("[{}] Attempted to call addIfAbsent with null item", entityName);
+            throw new IllegalArgumentException(entityName + " item must not be null");
+        }
+        String id = normalizeId(identityExtractor.identityOf(item));
+        if (storage.containsKey(id)) {
+            log.warn("[{}] Duplicate identity '{}' skipped by addIfAbsent", entityName, id);
             return false;
         }
         storage.put(id, item);
-        log.info("[{}] Added item with identity '{}': {}", entityName, id, item);
+        log.info("[{}] Added item with identity '{}' via addIfAbsent", entityName, id);
         return true;
     }
 
-    /**
-     * Видаляє елемент за його унікальним identity.
-     */
+    public int addAll(Collection<? extends T> items) {
+        if (items == null) {
+            log.error("[{}] Attempted to call addAll with null collection", entityName);
+            throw new IllegalArgumentException("items collection must not be null");
+        }
+        int addedCount = 0;
+        for (T item : items) {
+            if (addIfAbsent(item)) {
+                addedCount++;
+            }
+        }
+        log.info("[{}] Batch addAll finished: added {} of {} items", entityName, addedCount, items.size());
+        return addedCount;
+    }
+
     public boolean removeByIdentity(String identity) {
         if (identity == null || identity.trim().isEmpty()) {
             log.warn("[{}] Attempted to remove item with blank identity", entityName);
@@ -56,20 +82,14 @@ public class GenericRepository<T> {
         return false;
     }
 
-    /**
-     * Видаляє переданий об'єкт, витягуючи його identity через IdentityExtractor.
-     */
     public boolean remove(T item) {
         if (item == null) {
+            log.warn("[{}] Attempted to remove null item", entityName);
             return false;
         }
-        String id = normalizeId(identityExtractor.extractIdentity(item));
-        return removeByIdentity(id);
+        return removeByIdentity(normalizeId(identityExtractor.identityOf(item)));
     }
 
-    /**
-     * Пошук об'єкта за унікальним полем (identity).
-     */
     public Optional<T> findByIdentity(String identity) {
         if (identity == null || identity.trim().isEmpty()) {
             log.warn("[{}] Search called with blank identity", entityName);
@@ -79,16 +99,13 @@ public class GenericRepository<T> {
         T found = storage.get(id);
         if (found != null) {
             log.info("[{}] Found item by identity '{}'", entityName, id);
-        } else {
-            log.info("[{}] No item found by identity '{}'", entityName, id);
+            return Optional.of(found);
         }
-        return Optional.ofNullable(found);
+        log.warn("[{}] Item with identity '{}' not found", entityName, id);
+        return Optional.empty();
     }
 
-    /**
-     * Повертає незмінну копію списку всіх елементів репозиторію.
-     */
-    public List<T> getAll() {
+    public List<T> findAll() {
         log.info("[{}] Retrieved all items (count={})", entityName, storage.size());
         return List.copyOf(storage.values());
     }
@@ -99,6 +116,7 @@ public class GenericRepository<T> {
 
     private String normalizeId(String rawId) {
         if (rawId == null || rawId.trim().isEmpty()) {
+            log.error("[{}] Extracted identity is null or blank", entityName);
             throw new IllegalArgumentException(entityName + " extracted identity must not be null or blank");
         }
         return rawId.trim();
