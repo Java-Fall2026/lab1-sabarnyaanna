@@ -39,7 +39,7 @@ class BankLab4Test {
         assertTrue(branchRepo.add(b2));
         assertEquals(2, branchRepo.size());
 
-        List<BankBranch> all = branchRepo.getAll();
+        List<BankBranch> all = branchRepo.findAll();
         assertEquals(List.of(b1, b2), all);
         assertThrows(UnsupportedOperationException.class, () -> all.add(BankBranch.of("BR-03", "Львів")));
     }

@@ -1,14 +1,11 @@
 package ua.bank;
 
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.DoubleSummaryStatistics;
-import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Stream;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ua.bank.io.BankCsvReader;
 import ua.bank.model.BankBranch;
 import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
@@ -16,94 +13,64 @@ import ua.bank.model.LoanType;
 import ua.bank.repository.BorrowerRepository;
 import ua.bank.repository.LoanContractRepository;
 import ua.bank.repository.SortOrder;
-import ua.bank.util.BankUtils;
 
+/**
+ * Application entry point for Lab 5 demonstrating Stream API sorting,
+ * text and range filtering, grouping, and aggregation.
+ */
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
-        log.info("=== Запуск програми (Лабораторна робота №5: Сортування та Stream API) ===");
+        log.info("Starting application (Lab 5: Stream API, Comparable/Comparator, Aggregation)");
 
-        // 1. Наповнення доменних репозиторіїв
+        // 1. Load data from CSV files
+        List<BankBranch> branches = BankCsvReader.readBranches("data/branches.csv");
+        List<Borrower> csvBorrowers = BankCsvReader.readBorrowers("data/borrowers.csv");
+
         BorrowerRepository borrowerRepo = new BorrowerRepository();
+        borrowerRepo.addAll(csvBorrowers);
+
         LoanContractRepository contractRepo = new LoanContractRepository();
+        if (!branches.isEmpty() && borrowerRepo.size() >= 2) {
+            List<Borrower> allBorrowers = borrowerRepo.findAll();
+            BankBranch b1 = branches.get(0);
+            BankBranch b2 = branches.size() > 1 ? branches.get(1) : b1;
 
-        Borrower b1 = new Borrower("CC300300", "Олена Ковальчук", LocalDate.of(1995, 5, 14), 35000.0);
-        Borrower b2 = new Borrower("AA100100", "Тарас Бондар", LocalDate.of(1988, 9, 22), 55000.0);
-        Borrower b3 = new Borrower("BB200200", "Наталія Ткачук", LocalDate.of(1992, 11, 30), 55000.0);
-        Borrower b4 = new Borrower("DD400400", "Андрій Мельник", LocalDate.of(1985, 2, 10), 22000.0);
-
-        borrowerRepo.add(b1);
-        borrowerRepo.add(b2);
-        borrowerRepo.add(b3);
-        borrowerRepo.add(b4);
-
-        BankBranch kyiv = BankBranch.of("BR-01", "Київ");
-        BankBranch chernivtsi = BankBranch.of("BR-02", "Чернівці");
-        BankBranch lviv = BankBranch.of("BR-03", "Львів");
-
-        contractRepo.add(new LoanContract("LN-03", b1, kyiv, LoanType.MORTGAGE, 800000.0, LocalDate.of(2026, 5, 10), 120));
-        contractRepo.add(new LoanContract("LN-01", b2, chernivtsi, LoanType.AUTO, 450000.0, LocalDate.of(2026, 7, 15), 36));
-        contractRepo.add(new LoanContract("LN-04", b3, kyiv, LoanType.MORTGAGE, 800000.0, LocalDate.of(2026, 8, 20), 60));
-        contractRepo.add(new LoanContract("LN-02", b4, lviv, LoanType.CONSUMER, 120000.0, LocalDate.of(2026, 9, 1), 12));
-
-        // 2. Сортування за природним порядком, за identity (ASC / DESC) та багаторівневим компаратором
-        System.out.println("\n=== Сортування позичальників (природний порядок: passportNum) ===");
-        borrowerRepo.findAllSortedByNaturalOrder().forEach(System.out::println);
-
-        System.out.println("\n=== Сортування договорів за identity (DESC) ===");
-        contractRepo.findAllSortedByIdentity(SortOrder.DESC).forEach(System.out::println);
-
-        System.out.println("\n=== Багаторівневе сортування договорів (сума DESC -> термін ASC) ===");
-        contractRepo.findAllSortedByAmountDescThenTermAsc().forEach(System.out::println);
-
-        // 3. Демонстрація TreeSet із компаратором, неузгодженим з equals
-        System.out.println("\n=== TreeSet з компаратором за доходом (не узгодженим з equals) ===");
-        Set<Borrower> treeSetByIncome = new TreeSet<>(Comparator.comparingDouble(Borrower::getMonthlyIncome));
-        treeSetByIncome.add(b2); // дохід 55000.0
-        boolean addedSameIncome = treeSetByIncome.add(b3); // інший паспорт, але той самий дохід 55000.0!
-        System.out.println("Чи додано другого позичальника з таким самим доходом 55000 у TreeSet: " + addedSameIncome);
-        System.out.println("Розмір TreeSet: " + treeSetByIncome.size() + " (TreeSet вважає елементи дублікатами, бо compare == 0)");
-
-        // 4. Пошук через Stream API (діапазон, назва, кілька умов, distinct)
-        System.out.println("\n=== Пошук договорів у діапазоні сум [400 000 .. 900 000] ===");
-        contractRepo.findByPrincipalRange(400_000.0, 900_000.0).forEach(System.out::println);
-
-        System.out.println("\n=== Унікальні міста відділень у договорах (map + distinct + sorted) ===");
-        System.out.println(contractRepo.findDistinctBranchCities());
-
-        // 5. Групування та агрегація
-        System.out.println("\n=== Групування договорів за типом (groupingBy + counting) ===");
-        System.out.println("Кількість за типами: " + contractRepo.countByLoanType());
-        System.out.println("Загальна сума всіх кредитів (reduce): "
-                + BankUtils.formatMoney(contractRepo.calculateTotalPrincipal()));
-
-        DoubleSummaryStatistics incomeStats = borrowerRepo.getIncomeStatistics();
-        System.out.printf("Статистика доходів: мін=%.2f, макс=%.2f, середній=%.2f%n",
-                incomeStats.getMin(), incomeStats.getMax(), incomeStats.getAverage());
-
-        // 6. Обробка порожнього результату через Optional (без isPresent() + get())
-        System.out.println("\n=== Обробка порожнього результату (Optional) ===");
-        Optional<LoanContract> missingContract = contractRepo.findFirstByTypeCityAndMinDate(
-                LoanType.COMMERCIAL, "Одеса", LocalDate.of(2026, 1, 1)
-        );
-        String message = missingContract
-                .map(c -> "Знайдено: " + c.contractId())
-                .orElse("Договір за заданими умовами не знайдено (Optional.empty)");
-        System.out.println(message);
-
-        // 7. Повторне використання вже спожитого Stream -> IllegalStateException
-        System.out.println("\n=== Повторне використання спожитого Stream ===");
-        Stream<Borrower> borrowerStream = borrowerRepo.stream();
-        long count = borrowerStream.count(); // термінальна операція спожила стрім
-        System.out.println("Перший виклик count(): " + count);
-        try {
-            borrowerStream.forEach(System.out::println); // повторний виклик на тому ж Stream
-        } catch (IllegalStateException e) {
-            log.error("Очікувана помилка повторного використання Stream: {}", e.getMessage());
+            contractRepo.add(new LoanContract("LN-2026-03", allBorrowers.get(0), b1, LoanType.MORTGAGE,
+                    800000.0, LocalDate.of(2026, 3, 10), 120));
+            contractRepo.add(new LoanContract("LN-2026-01", allBorrowers.get(1), b2, LoanType.AUTO,
+                    450000.0, LocalDate.of(2026, 1, 15), 48));
+            contractRepo.add(new LoanContract("LN-2026-02", allBorrowers.get(0), b1, LoanType.CONSUMER,
+                    120000.0, LocalDate.of(2026, 2, 20), 24));
         }
 
-        log.info("=== Роботу програми успішно завершено ===");
+        // 2. Demonstrate findAllSortedByIdentity(ASC)
+        System.out.println("=== Договори, відсортовані за identity (ASC) ===");
+        contractRepo.findAllSortedByIdentity(SortOrder.ASC)
+                .forEach(c -> System.out.println(c.contractId() + " (" + c.loanType() + "): " + c.principalAmount()));
+
+        // 3. Demonstrate borrower sorting
+        System.out.println("\n=== Позичальники, відсортовані за доходом (DESC) ===");
+        borrowerRepo.findAllSortedByIncome(SortOrder.DESC)
+                .forEach(b -> System.out.println(b.getPassportNum() + " | " + b.getFullName() + " | " + b.getMonthlyIncome()));
+
+        // 4. Demonstrate text search
+        System.out.println("\n=== Текстовий пошук позичальників за підрядком 'ов' ===");
+        borrowerRepo.searchByNameContaining("ов")
+                .forEach(System.out::println);
+
+        // 5. Demonstrate groupByLoanType
+        System.out.println("\n=== Групування договорів за типом кредиту (groupByLoanType) ===");
+        Map<LoanType, List<LoanContract>> grouped = contractRepo.groupByLoanType();
+        grouped.forEach((type, list) -> System.out.println(type + " -> " + list.size() + " договорів"));
+
+        // 6. Demonstrate aggregation
+        System.out.println("\n=== Загальна сума кредитів ===");
+        System.out.println("Загальний портфель: " + contractRepo.getTotalPrincipalAmount());
+        System.out.println("Статистика доходів позичальників: " + borrowerRepo.getIncomeStatistics());
+
+        log.info("Application finished successfully");
     }
 }
