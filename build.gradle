@@ -42,5 +42,5 @@ tasks.register('runBenchmark', JavaExec) {
     group = 'application'
     description = 'Runs SearchBenchmark on 100,000 objects'
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'ua.bank.benchmark.SearchBenchmark'
+    mainClass = 'ua.bank.repository.SearchBenchmark'
 }
