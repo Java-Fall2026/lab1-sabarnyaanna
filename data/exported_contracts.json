@@ -1,0 +1,177 @@
+[ {
+  "contractId" : "LN-2026-01",
+  "borrower" : {
+    "passportNum" : "AA100001",
+    "fullName" : "Олена Ковальчук",
+    "birthDate" : "1995-05-14",
+    "monthlyIncome" : 35000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-01",
+    "city" : "Київ"
+  },
+  "loanType" : "MORTGAGE",
+  "principalAmount" : 900000.0,
+  "issueDate" : "2026-01-15",
+  "termMonths" : 120
+}, {
+  "contractId" : "LN-2026-02",
+  "borrower" : {
+    "passportNum" : "BB100002",
+    "fullName" : "Тарас Бондар",
+    "birthDate" : "1988-09-22",
+    "monthlyIncome" : 55000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-02",
+    "city" : "Чернівці"
+  },
+  "loanType" : "AUTO",
+  "principalAmount" : 450000.0,
+  "issueDate" : "2026-02-10",
+  "termMonths" : 36
+}, {
+  "contractId" : "LN-2026-03",
+  "borrower" : {
+    "passportNum" : "CC100003",
+    "fullName" : "Наталія Ткачук",
+    "birthDate" : "1992-11-30",
+    "monthlyIncome" : 48000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-03",
+    "city" : "Львів"
+  },
+  "loanType" : "CONSUMER",
+  "principalAmount" : 150000.0,
+  "issueDate" : "2026-03-05",
+  "termMonths" : 24
+}, {
+  "contractId" : "LN-2026-05",
+  "borrower" : {
+    "passportNum" : "EE100005",
+    "fullName" : "Ірина Савченко",
+    "birthDate" : "1998-07-19",
+    "monthlyIncome" : 31000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-04",
+    "city" : "Одеса"
+  },
+  "loanType" : "COMMERCIAL",
+  "principalAmount" : 600000.0,
+  "issueDate" : "2026-04-01",
+  "termMonths" : 48
+}, {
+  "contractId" : "LN-2026-06",
+  "borrower" : {
+    "passportNum" : "FF100006",
+    "fullName" : "Максим Шевченко",
+    "birthDate" : "1991-03-25",
+    "monthlyIncome" : 62000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-02",
+    "city" : "Чернівці"
+  },
+  "loanType" : "MORTGAGE",
+  "principalAmount" : 1500000.0,
+  "issueDate" : "2026-04-12",
+  "termMonths" : 180
+}, {
+  "contractId" : "LN-2026-07",
+  "borrower" : {
+    "passportNum" : "GG100007",
+    "fullName" : "Оксана Лисенко",
+    "birthDate" : "1994-12-05",
+    "monthlyIncome" : 41000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-05",
+    "city" : "Дніпро"
+  },
+  "loanType" : "AUTO",
+  "principalAmount" : 320000.0,
+  "issueDate" : "2026-05-03",
+  "termMonths" : 36
+}, {
+  "contractId" : "LN-2026-09",
+  "borrower" : {
+    "passportNum" : "NN100011",
+    "fullName" : "Юлія Данилюк",
+    "birthDate" : "1993-04-02",
+    "monthlyIncome" : 52000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-03",
+    "city" : "Львів"
+  },
+  "loanType" : "COMMERCIAL",
+  "principalAmount" : 750000.0,
+  "issueDate" : "2026-06-08",
+  "termMonths" : 60
+}, {
+  "contractId" : "LN-2026-10",
+  "borrower" : {
+    "passportNum" : "PP100012",
+    "fullName" : "Сергій Романенко",
+    "birthDate" : "1989-10-14",
+    "monthlyIncome" : 67000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-02",
+    "city" : "Чернівці"
+  },
+  "loanType" : "MORTGAGE",
+  "principalAmount" : 1800000.0,
+  "issueDate" : "2026-07-01",
+  "termMonths" : 240
+}, {
+  "contractId" : "LN-2026-12",
+  "borrower" : {
+    "passportNum" : "TT100013",
+    "fullName" : "Галина Яковенко",
+    "birthDate" : "1997-01-29",
+    "monthlyIncome" : 33000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-04",
+    "city" : "Одеса"
+  },
+  "loanType" : "AUTO",
+  "principalAmount" : 290000.0,
+  "issueDate" : "2026-08-10",
+  "termMonths" : 36
+}, {
+  "contractId" : "LN-2026-13",
+  "borrower" : {
+    "passportNum" : "BB100002",
+    "fullName" : "Тарас Бондар",
+    "birthDate" : "1988-09-22",
+    "monthlyIncome" : 55000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-05",
+    "city" : "Дніпро"
+  },
+  "loanType" : "CONSUMER",
+  "principalAmount" : 110000.0,
+  "issueDate" : "2026-09-02",
+  "termMonths" : 12
+}, {
+  "contractId" : "LN-2026-14",
+  "borrower" : {
+    "passportNum" : "CC100003",
+    "fullName" : "Наталія Ткачук",
+    "birthDate" : "1992-11-30",
+    "monthlyIncome" : 48000.0
+  },
+  "branch" : {
+    "branchCode" : "BR-03",
+    "city" : "Львів"
+  },
+  "loanType" : "COMMERCIAL",
+  "principalAmount" : 540000.0,
+  "issueDate" : "2026-10-12",
+  "termMonths" : 48
+} ]

@@ -4,6 +4,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,71 +14,69 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ua.bank.repository.GenericRepository;
 
+/**
+ * Loads entities from a file via FileStorage, validates each record using Jakarta Validation,
+ * and adds valid unique items into a GenericRepository.
+ */
 public class DataLoader {
 
     private static final Logger log = LoggerFactory.getLogger(DataLoader.class);
-    private final Validator validator;
 
-    public DataLoader() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        this.validator = factory.getValidator();
-    }
-
-    public <T> LoadResult loadInto(Path file, FileStorage<T> storage, GenericRepository<T> repository) {
-        List<RejectedRecord> rejected = new ArrayList<>();
-        List<T> rawItems;
-
+    public <T> LoadResult loadInto(Path path, FileStorage<T> storage, GenericRepository<T> repository) {
+        List<T> items;
         try {
-            rawItems = storage.load(file);
-        } catch (Exception e) {
-            RejectedRecord fileError = new RejectedRecord(0, "file",
-                    "Помилка читання файлу '" + file + "': " + e.getMessage());
-            rejected.add(fileError);
-            log.error("File '{}' failed to load: {}", file, e.getMessage());
-            log.warn("Rejected record -> {}", fileError);
-            log.info("Load summary for '{}': read=0, added=0, rejected={}", file, rejected.size());
-            return new LoadResult(0, 0, rejected);
+            items = storage.load(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to load data from file: " + path, e);
         }
 
+        int readCount = items.size();
         int addedCount = 0;
-        for (int i = 0; i < rawItems.size(); i++) {
-            int recordNumber = i + 1;
-            T item = rawItems.get(i);
+        List<RejectedRecord> rejected = new ArrayList<>();
 
-            if (item == null) {
-                RejectedRecord nullRec = new RejectedRecord(recordNumber, "object", "Запис є порожнім (null)");
-                rejected.add(nullRec);
-                log.warn("Rejected record -> {}", nullRec);
-                continue;
-            }
+        try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+            Validator validator = factory.getValidator();
 
-            Set<ConstraintViolation<T>> violations = validator.validate(item);
-            if (!violations.isEmpty()) {
-                for (ConstraintViolation<T> v : violations) {
-                    String fieldPath = v.getPropertyPath().toString();
-                    if (fieldPath.isEmpty()) {
-                        fieldPath = "cross-field";
-                    }
-                    RejectedRecord rej = new RejectedRecord(recordNumber, fieldPath, v.getMessage());
-                    rejected.add(rej);
-                    log.warn("Rejected record -> {}", rej);
+            for (int i = 0; i < items.size(); i++) {
+                T item = items.get(i);
+                int recordNumber = i + 1;
+
+                if (item == null) {
+                    RejectedRecord rec = new RejectedRecord(recordNumber, List.of("Record is null"));
+                    rejected.add(rec);
+                    log.warn("Rejected record #{} in '{}': record is null", recordNumber, path);
+                    continue;
                 }
-                continue;
-            }
 
-            boolean added = repository.addIfAbsent(item);
-            if (added) {
-                addedCount++;
-            } else {
-                RejectedRecord dup = new RejectedRecord(recordNumber, "identity",
-                        "Дублікат унікального ідентифікатора");
-                rejected.add(dup);
-                log.warn("Rejected record -> {}", dup);
+                Set<ConstraintViolation<T>> violations = validator.validate(item);
+                if (!violations.isEmpty()) {
+                    List<String> reasons = violations.stream()
+                            .map(v -> {
+                                String field = v.getPropertyPath().toString();
+                                return (field.isEmpty() ? "cross-field" : field) + ": " + v.getMessage();
+                            })
+                            .sorted()
+                            .toList();
+                    RejectedRecord rec = new RejectedRecord(recordNumber, reasons);
+                    rejected.add(rec);
+                    log.warn("Rejected record #{} in '{}' due to {} validation error(s): {}",
+                            recordNumber, path, reasons.size(), reasons);
+                    continue;
+                }
+
+                boolean added = repository.addIfAbsent(item);
+                if (added) {
+                    addedCount++;
+                } else {
+                    RejectedRecord rec = new RejectedRecord(recordNumber, List.of("Duplicate entity identity"));
+                    rejected.add(rec);
+                    log.warn("Rejected record #{} in '{}': duplicate identity", recordNumber, path);
+                }
             }
         }
 
-        log.info("Load summary for '{}': read={}, added={}, rejected={}",
-                file, rawItems.size(), addedCount, rejected.size());
-        return new LoadResult(rawItems.size(), addedCount, rejected);
+        log.info("Finished loading '{}': read={}, added={}, rejectedRecords={}",
+                path, readCount, addedCount, rejected.size());
+        return new LoadResult(readCount, addedCount, rejected);
     }
 }

@@ -11,6 +11,10 @@
   fullName: "Наталія Ткачук"
   birthDate: "1992-11-30"
   monthlyIncome: 48000.0
+- passportNum: "DD100004"
+  fullName: "Андрій Мельник"
+  birthDate: "1985-02-10"
+  monthlyIncome: 28000.0
 - passportNum: "EE100005"
   fullName: "Ірина Савченко"
   birthDate: "1998-07-19"
@@ -39,7 +43,3 @@
   fullName: "Галина Яковенко"
   birthDate: "1997-01-29"
   monthlyIncome: 33000.0
-- passportNum: "ZZ999888"
-  fullName: "Новий Клієнт Експорту"
-  birthDate: "1994-04-20"
-  monthlyIncome: 75000.0

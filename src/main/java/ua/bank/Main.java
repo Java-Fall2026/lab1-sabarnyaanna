@@ -1,6 +1,8 @@
 package ua.bank;
 
+import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ua.bank.config.AppConfig;
@@ -11,22 +13,32 @@ import ua.bank.model.Borrower;
 import ua.bank.model.LoanContract;
 import ua.bank.repository.BorrowerRepository;
 import ua.bank.repository.LoanContractRepository;
-import ua.bank.web.ApiServer;
 
+/**
+ * Entry point for Lab 6 demonstrating classpath configuration loading,
+ * JSON/YAML serialization, Jakarta Validation, and round-trip verification.
+ */
 public class Main {
 
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
-    public static void main(String[] args) throws Exception {
-        log.info("Starting application (Lab 7: Servlets and REST API)");
+    public static void main(String[] args) throws IOException {
+        log.info("Starting Lab 6 application");
 
-        AppConfig config = AppConfig.loadFrom(Path.of("app.properties"));
-        int serverPort = config.getRequiredInt("server.port");
+        // 1. Load and display configuration from classpath
+        AppConfig config = AppConfig.loadFromClasspath("app.properties");
         Path borrowersInput = config.getRequiredPath("data.borrowers.file");
         Path contractsInput = config.getRequiredPath("data.contracts.file");
         Path borrowersOutput = config.getRequiredPath("data.output.borrowers.file");
         Path contractsOutput = config.getRequiredPath("data.output.contracts.file");
 
+        System.out.println("=== Loaded Configuration (classpath: app.properties) ===");
+        System.out.println("data.borrowers.file        = " + borrowersInput);
+        System.out.println("data.contracts.file        = " + contractsInput);
+        System.out.println("data.output.borrowers.file = " + borrowersOutput);
+        System.out.println("data.output.contracts.file = " + contractsOutput);
+
+        // 2. Load and validate JSON and YAML files into repositories
         FileStorage<Borrower> borrowerStorage = new FileStorage<>(Borrower.class);
         FileStorage<LoanContract> contractStorage = new FileStorage<>(LoanContract.class);
         DataLoader loader = new DataLoader();
@@ -37,29 +49,29 @@ public class Main {
         LoadResult borrowersRes = loader.loadInto(borrowersInput, borrowerStorage, borrowerRepo);
         LoadResult contractsRes = loader.loadInto(contractsInput, contractStorage, contractRepo);
 
-        System.out.printf("Завантажено позичальників: прочитано=%d, додано=%d, відкинуто=%d%n",
-                borrowersRes.readCount(), borrowersRes.addedCount(), borrowersRes.rejected().size());
-        System.out.printf("Завантажено договорів: прочитано=%d, додано=%d, відкинуто=%d%n",
-                contractsRes.readCount(), contractsRes.addedCount(), contractsRes.rejected().size());
+        System.out.printf("%nBorrowers loaded: read=%d, added=%d, rejectedRecords=%d%n",
+                borrowersRes.readCount(), borrowersRes.addedCount(), borrowersRes.rejectedCount());
+        System.out.printf("Contracts loaded: read=%d, added=%d, rejectedRecords=%d%n",
+                contractsRes.readCount(), contractsRes.addedCount(), contractsRes.rejectedCount());
 
-        ApiServer server = new ApiServer(serverPort, borrowerRepo, contractRepo);
+        // 3. Save repositories to new files and verify round-trip equality
+        borrowerStorage.save(borrowersOutput, borrowerRepo.findAll());
+        contractStorage.save(contractsOutput, contractRepo.findAll());
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                server.stop();
-                borrowerStorage.save(borrowersOutput, borrowerRepo.findAll());
-                contractStorage.save(contractsOutput, contractRepo.findAll());
-                log.info("Repositories saved on shutdown to '{}' and '{}'", borrowersOutput, contractsOutput);
-            } catch (Exception e) {
-                log.error("Error during server shutdown and save: {}", e.getMessage(), e);
-            }
-        }));
+        List<Borrower> reloadedBorrowers = borrowerStorage.load(borrowersOutput);
+        List<LoanContract> reloadedContracts = contractStorage.load(contractsOutput);
 
-        server.start();
-        System.out.println("REST API сервер запущено за адресою: http://localhost:" + server.port());
-        System.out.println("Натисніть Enter у консолі або Ctrl+C для зупинки сервера та збереження даних...");
+        boolean borrowersMatch = borrowerRepo.findAll().equals(reloadedBorrowers);
+        boolean contractsMatch = contractRepo.findAll().equals(reloadedContracts);
 
-        System.in.read();
-        System.exit(0);
+        System.out.println("\n=== Round-Trip File Verification ===");
+        System.out.println("Reloaded borrowers match repository : " + borrowersMatch + " (count=" + reloadedBorrowers.size() + ")");
+        System.out.println("Reloaded contracts match repository : " + contractsMatch + " (count=" + reloadedContracts.size() + ")");
+
+        if (!borrowersMatch || !contractsMatch) {
+            throw new IllegalStateException("Reloaded file content does not match repository state!");
+        }
+
+        log.info("Lab 6 application completed successfully");
     }
 }

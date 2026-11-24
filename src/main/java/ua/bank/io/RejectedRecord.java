@@ -1,12 +1,15 @@
 package ua.bank.io;
 
+import java.util.List;
+
+/**
+ * Represents a single rejected record along with all its validation or duplicate reasons.
+ */
 public record RejectedRecord(
-        int recordNumber,
-        String field,
-        String message
+        int recordIndex,
+        List<String> reasons
 ) {
-    @Override
-    public String toString() {
-        return "Запис #" + recordNumber + " [" + field + "]: " + message;
+    public RejectedRecord {
+        reasons = reasons == null ? List.of() : List.copyOf(reasons);
     }
 }

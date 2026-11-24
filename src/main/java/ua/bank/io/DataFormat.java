@@ -2,21 +2,24 @@ package ua.bank.io;
 
 import java.nio.file.Path;
 
+/**
+ * Supported serialization formats determined by file extension.
+ */
 public enum DataFormat {
     JSON,
     YAML;
 
-    public static DataFormat fromPath(Path file) {
-        if (file == null || file.getFileName() == null) {
-            throw new IllegalArgumentException("Шлях до файлу не може бути null");
+    public static DataFormat fromPath(Path path) {
+        if (path == null) {
+            throw new IllegalArgumentException("File path must not be null");
         }
-        String name = file.getFileName().toString().toLowerCase();
-        if (name.endsWith(".json")) {
+        String fileName = path.getFileName().toString().toLowerCase();
+        if (fileName.endsWith(".json")) {
             return JSON;
         }
-        if (name.endsWith(".yaml") || name.endsWith(".yml")) {
+        if (fileName.endsWith(".yaml") || fileName.endsWith(".yml")) {
             return YAML;
         }
-        throw new IllegalArgumentException("Непідтримуване розширення файлу: " + file.getFileName());
+        throw new IllegalArgumentException("Unsupported file format (expected .json, .yaml, or .yml): " + path);
     }
 }
